@@ -10,6 +10,8 @@
 #include "json.hpp"
 #include "spline.h"
 
+#include "ptg.h"
+
 using namespace std;
 
 // for convenience

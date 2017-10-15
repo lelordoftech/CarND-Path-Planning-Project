@@ -2,7 +2,11 @@
 
 The goals / steps of this project are the following:
 
-* In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 50 m/s^3.
+* In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway.
+* The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too.
+* The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another.
+* The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop.
+* Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 50 m/s^3.
 
 [//]: # (Image References)
 [image1]: ./output_images/compilation.png
@@ -39,13 +43,19 @@ Here's a [link to my final video result][video1]
 
 #### 1. There is a reflection on how to generate paths.
 
+I generated paths by 5 steps as below:
+
 ##### 1.1 Check near car in all lanes
 
 To drive our car safety, I will check others car in all lanes with dangerous range is from -10 meters to +30 meters compare with our position.
 
+File `main.cpp` line 339-381.
+
 ##### 1.2 Choose the best lane
 
 This is planning's heart.
+
+File `main.cpp` line 384-453.
 
 ##### 1.3 Control speed
 
@@ -53,7 +63,13 @@ Start speed value is 0 mph.
 
 Max speed is 49.5 mph.
 
-Speed increase/decrease with step value is 0.224 mph (acceleration = 5m/s2)
+Speed increase/decrease with step value is 0.224 mph/0.02s (acceleration = 5m/s2)
+
+* When start from 0, my velocity will increase until is equal max speed is 49.5. So my car can start smoothly.
+* When close other vehicle, my car will decrease velocity slow down.
+* With acceleration is 5m/s2. So driver will feel comfortable.
+
+File `main.cpp` line 456-463.
 
 ##### 1.4 Create spline
 
