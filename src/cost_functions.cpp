@@ -127,7 +127,7 @@ double buffer_cost(struct trajectory traj, int8_t target_vehicle, struct state d
 }
 
 /*
- * Penalizes stays on road.
+ * Rewards stays on road.
  */
 double stays_on_road_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
 {
@@ -147,7 +147,25 @@ double stays_on_road_cost(struct trajectory traj, int8_t target_vehicle, struct 
 double exceeds_speed_limit_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
 {
   double cost = 0.0;
-  // TODO
+  double* s = traj.s_coeffs;
+  double* d = traj.d_coeffs;
+  double t = traj.T;
+  double s_dot[5];
+  differentiate(s_dot, s, 5);
+  std::vector<double> all_vels;
+  for (uint8_t i = 0; i < 100; i++)
+  {
+    all_vels.push_back(calculate(s_dot, T/100 * i, 5));
+  }
+  double max_vel = *std::max_element(all_vels.begin(), all_vels.end());
+  if (abs(max_vel) > SPEED_LIMIT)
+  {
+    cost = 1.0;
+  }
+  else
+  {
+    cost = 0.0;
+  }
 
   if (verbose == true)
   {
