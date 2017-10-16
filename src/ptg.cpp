@@ -8,10 +8,12 @@
       that vehicle from the "predictions" dictionary. This is the vehicle that 
       we are setting our trajectory relative to.
  * @param: delta - a length 6 array indicating the offset we are aiming for between us
-      and the target_vehicle. So if at time 5 the target vehicle will be at 
-      [100, 10, 0, 0, 0, 0] and delta is [-10, 0, 0, 4, 0, 0], then our goal 
-      state for t = 5 will be [90, 10, 0, 4, 0, 0]. This would correspond to a 
-      goal of "follow 10 meters behind and 4 meters to the right of target vehicle"
+      and the target_vehicle.
+      So if at time 5 the target vehicle will be at [100, 10, 0, 0, 0, 0] 
+      and delta is [-10, 0, 0, 4, 0, 0], 
+      then our goal state for t = 5 will be [90, 10, 0, 4, 0, 0]. 
+      This would correspond to a goal of 
+      "follow 10 meters behind and 4 meters to the right of target vehicle"
  * @param: T - the desired time at which we will be at the goal (relative to now as t=0)
  * @param: predictions - dictionary of {v_id : vehicle }. Each vehicle has a method 
       vehicle.state_in(time) which returns a length 6 array giving that vehicle's
@@ -64,20 +66,27 @@ struct trajectory Ptg::PTG(struct model start_s, struct model start_d, int8_t ta
     JMT(traj.d_coeffs, start_d, d_goal, t);
     traj.T = t;
 
-    cost = calculate_cost(traj, target_vehicle, delta, T, predictions, weighted_cost_functions);
+    cost = calculate_cost(traj, target_vehicle, delta, T, predictions, weighted_cost_functions, false);
 
     cost_traj[cost] = traj;
-    plot_trajectory(traj.s_coeffs, traj.d_coeffs, traj.T, &predictions[0]);
+    plot_trajectory(traj.s_coeffs, traj.d_coeffs, traj.T, "", "b--");
   }
-  show_trajectory();
 
   best_traj = cost_traj.begin()->second; // Minimum cost
+  printf("==============================\n");
+  printf("=        MINIMUM COST        =\n");
+  printf("==============================\n");
   calculate_cost(best_traj, target_vehicle, delta, T, predictions, weighted_cost_functions, true);
-  printf("Minimum cost is  : %f\n", cost_traj.begin()->first);
+  printf("------------------------------\n");
+  printf("Total cost       : %f\n", cost_traj.begin()->first);
+  printf("------------------------------\n");
 
   return best_traj;
 }
 
+/*
+ * Return a total cost of this trajectory
+ */
 double Ptg::calculate_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double goal_t, std::map<int8_t, Vehicle> predictions, weight_func_map weights_func, bool verbose)
 {
   double cost = 0;
