@@ -3,8 +3,6 @@
 #include <vector>
 
 #include "helpers.h"
-#include "matplotlibcpp.h"
-namespace plt = matplotlibcpp;
 
 Vehicle::Vehicle()
 {
@@ -52,76 +50,6 @@ double calculate(double* coeffs, double t, uint8_t N)
 }
 
 /*
- * Plot vehicle into graph
- */
-void plot_vehicle(double T, const char* name, const char* plot_type, Vehicle* vehicle, bool isShow)
-{
-  std::vector<double> X2;
-  std::vector<double> Y2;
-
-  for (double t = 0.0; t < T; t+=0.25)
-  {
-    if (vehicle != NULL)
-    {
-      struct state cur_state = vehicle->state_in(t);
-      X2.push_back(cur_state.s.m);
-      Y2.push_back(cur_state.d.m);
-    }
-  }
-  if (vehicle != NULL)
-  {
-    plt::named_plot(name, X2, Y2, plot_type);
-  }
-  if (isShow == true)
-  {
-    show_trajectory();
-  }
-}
-
-/*
- * Plot trajectory into graph
- */
-void plot_trajectory(double* s_coeffs, double* d_coeffs, double T, const char* name, const char* plot_type, bool isShow)
-{
-  std::vector<double> X;
-  std::vector<double> Y;
-
-  for (double t = 0.0; t < T; t+=0.25)
-  {
-    X.push_back(calculate(s_coeffs, t));
-    Y.push_back(calculate(d_coeffs, t));
-  }
-  if (name != "")
-  {
-    plt::named_plot(name, X, Y, plot_type);
-  }
-  else
-  {
-    plt::plot(X, Y, plot_type);
-  }
-  if (isShow == true)
-  {
-    show_trajectory();
-  }
-}
-
-/*
- * Show trajectory graph
- */
-void show_trajectory()
-{
-  // Enable legend.
-  plt::legend();
-  // Label
-  plt::xlabel("S");
-  plt::ylabel("D");
-  // Save image file
-  plt::save("../output_images/show_trajectory.png");
-  // Show
-  plt::show();
-}
-
-/*
  * A function that returns a value between 0 and 1 for x in the 
  *  range [0, infinity] and -1 to 1 for x in the range [-infinity, infinity].
 
@@ -159,24 +87,6 @@ void get_f_and_N_derivatives(double* out_coeffs, double* coeffs, uint8_t N, doub
 }
 
 /*
- * Calculates the closest distance to any vehicle during a trajectory.
- */
-double nearest_approach_to_any_vehicle(struct trajectory traj, std::map<int8_t, Vehicle> vehicles)
-{
-  double closest = 999999;
-  for (std::map<int8_t, Vehicle>::iterator it=vehicles.begin(); it!=vehicles.end(); ++it)
-  {
-    Vehicle v = it->second;
-    double d = nearest_approach(traj, v);
-    if (d < closest)
-    {
-      closest = d;
-    }
-  }
-  return closest;
-}
-
-/*
  * Calculates the closest distance to vehicle during a trajectory.
  */
 double nearest_approach(struct trajectory traj, Vehicle vehicle)
@@ -201,3 +111,122 @@ double nearest_approach(struct trajectory traj, Vehicle vehicle)
   }
   return closest;
 }
+
+/*
+ * Calculates the closest distance to any vehicle during a trajectory.
+ */
+double nearest_approach_to_any_vehicle(struct trajectory traj, std::map<int8_t, Vehicle> vehicles)
+{
+  double closest = 999999;
+  for (std::map<int8_t, Vehicle>::iterator it=vehicles.begin(); it!=vehicles.end(); ++it)
+  {
+    Vehicle v = it->second;
+    double d = nearest_approach(traj, v);
+    if (d < closest)
+    {
+      closest = d;
+    }
+  }
+  return closest;
+}
+
+#ifdef VISUAL_DEBUG
+Graph* Graph::g_instance = NULL;
+
+Graph::Graph()
+{
+  initGraph();
+}
+
+Graph::~Graph()
+{
+  //
+}
+
+/*
+ * Init graph
+ */
+void Graph::initGraph()
+{
+  // Create black empty images
+  g_image = Mat::zeros(440, 320, CV_8UC3);
+  // Draw 3 lanes
+  line(g_image, Point(40, 0), Point(40, 440), Scalar(110, 220, 0), 2, 8);
+  line(g_image, Point(120, 0), Point(120, 440), Scalar(110, 220, 0), 2, 8);
+  line(g_image, Point(200, 0), Point(200, 440), Scalar(110, 220, 0), 2, 8);
+  line(g_image, Point(280, 0), Point(280, 440), Scalar(110, 220, 0), 2, 8);
+}
+
+/*
+ * Generate trajectory graph into g_image
+ */
+void Graph::gen_trajectory(double car_s, std::vector<double>& X, std::vector<double>& Y, Scalar color)
+{
+  // Draw graph
+  for (int i = 0; i < X.size()-1; i++)
+  {
+    line(g_image, Point(40+X[i]*20, 440 - (Y[i]-car_s)*20), Point(40+X[i+1]*20, 440 - (Y[i+1]-car_s)*20), color, 1, 8);
+  }
+}
+
+/*
+ * Plot trajectory into graph
+ */
+void Graph::plot_trajectory(double car_s, double* s_coeffs, double* d_coeffs, double T, Scalar color, bool isShow)
+{
+  std::vector<double> S;
+  std::vector<double> D;
+
+  for (double t = 0.0; t < T; t+=0.02)
+  {
+    S.push_back(calculate(s_coeffs, t));
+    D.push_back(calculate(d_coeffs, t));
+  }
+  gen_trajectory(car_s, D, S, color);
+  if (isShow == true)
+  {
+    show_trajectory();
+  }
+}
+
+/*
+ * Plot vehicle into graph
+ */
+void Graph::plot_vehicle(double car_s, double T, Scalar color, Vehicle* vehicle, bool isShow)
+{
+  std::vector<double> S;
+  std::vector<double> D;
+
+  for (double t = 0.0; t < T; t+=0.02)
+  {
+    if (vehicle != NULL)
+    {
+      struct state cur_state = vehicle->state_in(t);
+      S.push_back(cur_state.s.m);
+      D.push_back(cur_state.d.m);
+    }
+  }
+  if (vehicle != NULL)
+  {
+    gen_trajectory(car_s, D, S, color);
+    circle(g_image, Point(40+D[0]*20, 440 - (S[0]-car_s)*20), 10, color, 1, 8);
+  }
+  if (isShow == true)
+  {
+    show_trajectory();
+  }
+}
+
+/*
+ * Show trajectory graph
+ */
+uint8_t Graph::show_trajectory()
+{
+  // Save image file
+  char img_name[] = "../output_images/show_trajectory.png";
+  imwrite(img_name, g_image);
+  // Show
+  imshow("Path Planning", g_image);
+  return waitKey(1);
+}
+#endif // VISUAL_DEBUG

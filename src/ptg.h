@@ -16,6 +16,7 @@ class Ptg
 {
 private:
   weight_func_map weighted_cost_functions;
+  Graph* graph;
 public:
   Ptg()
   {
@@ -29,13 +30,15 @@ public:
     weighted_cost_functions[7][1] = &buffer_cost;
     weighted_cost_functions[8][1] = &max_accel_cost;
     weighted_cost_functions[9][1] = &total_accel_cost;
+
+    graph = Graph::getInstance();
   };
   ~Ptg(){};
 
   struct trajectory PTG(struct model start_s, struct model start_d, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions);
+  double calculate_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double goal_t, std::map<int8_t, Vehicle> predictions, bool verbose=false);
 
 private:
-  double calculate_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double goal_t, std::map<int8_t, Vehicle> predictions, weight_func_map cost_functions_with_weights, bool verbose=false);
   struct state perturb_goal(struct model goal_s, struct model goal_d);
   void JMT(double* coeffs, struct model start, struct model end, double T);
 };

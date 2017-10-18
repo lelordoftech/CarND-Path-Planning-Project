@@ -29,7 +29,7 @@ struct trajectory Ptg::PTG(struct model start_s, struct model start_d, int8_t ta
   Vehicle target = predictions.at(target_vehicle);
   // generate alternative goals
   std::vector<struct goal> all_goals;
-  double timestep = 0.5;
+  double timestep = 0.1;
   double t = T - 4 * timestep;
   while (t <= T + 4 * timestep) // loop 8 times = 8 traj
   {
@@ -66,20 +66,24 @@ struct trajectory Ptg::PTG(struct model start_s, struct model start_d, int8_t ta
     JMT(traj.d_coeffs, start_d, d_goal, t);
     traj.T = t;
 
-    cost = calculate_cost(traj, target_vehicle, delta, T, predictions, weighted_cost_functions, false);
+    cost = calculate_cost(traj, target_vehicle, delta, T, predictions);
 
     cost_traj[cost] = traj;
-    plot_trajectory(traj.s_coeffs, traj.d_coeffs, traj.T, "", "b--");
+#ifdef VISUAL_DEBUG
+    graph->plot_trajectory(start_s.m, traj.s_coeffs, traj.d_coeffs, traj.T);
+#endif // VISUAL_DEBUG
   }
 
   best_traj = cost_traj.begin()->second; // Minimum cost
+  /*
   printf("==============================\n");
   printf("=        MINIMUM COST        =\n");
   printf("==============================\n");
-  calculate_cost(best_traj, target_vehicle, delta, T, predictions, weighted_cost_functions, true);
+  calculate_cost(best_traj, target_vehicle, delta, T, predictions);
   printf("------------------------------\n");
   printf("Total cost       : %f\n", cost_traj.begin()->first);
   printf("------------------------------\n");
+  */
 
   return best_traj;
 }
@@ -87,12 +91,12 @@ struct trajectory Ptg::PTG(struct model start_s, struct model start_d, int8_t ta
 /*
  * Return a total cost of this trajectory
  */
-double Ptg::calculate_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double goal_t, std::map<int8_t, Vehicle> predictions, weight_func_map weights_func, bool verbose)
+double Ptg::calculate_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double goal_t, std::map<int8_t, Vehicle> predictions, bool verbose)
 {
   double cost = 0;
   double new_cost = 0;
 
-  for (weight_func_map::iterator it=weights_func.begin(); it!=weights_func.end(); ++it)
+  for (weight_func_map::iterator it=weighted_cost_functions.begin(); it!=weighted_cost_functions.end(); ++it)
   {
     new_cost = it->second.begin()->first * (*it->second.begin()->second)(traj, target_vehicle, delta, goal_t, predictions, verbose);
     cost += new_cost;
