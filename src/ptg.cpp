@@ -29,7 +29,7 @@ struct trajectory Ptg::PTG(struct model start_s, struct model start_d, int8_t ta
   Vehicle target = predictions.at(target_vehicle);
   // generate alternative goals
   std::vector<struct goal> all_goals;
-  double timestep = 0.1;
+  double timestep = 0.2;
   double t = T - 4 * timestep;
   while (t <= T + 4 * timestep) // loop 8 times = 8 traj
   {
@@ -42,13 +42,9 @@ struct trajectory Ptg::PTG(struct model start_s, struct model start_d, int8_t ta
     goals.s = goal_s;
     goals.d = goal_d;
     goals.t = t;
-    /*
-    for _ in range(N_SAMPLES):
-        perturbed = perturb_goal(goal_s, goal_d)
-        goals.append((perturbed[0], perturbed[1], t))
-    */
+
     all_goals.push_back(goals);
-    
+
     t += timestep;
   }
 
@@ -103,19 +99,6 @@ double Ptg::calculate_cost(struct trajectory traj, int8_t target_vehicle, struct
   }
 
   return cost;
-}
-
-/*
- * Returns a "perturbed" version of the goal.
- */
-struct state Ptg::perturb_goal(struct model goal_s, struct model goal_d)
-{
-  struct state goal;
-  // TODO
-  goal.s = goal_s;
-  goal.d = goal_d;
-
-  return goal;
 }
 
 /*

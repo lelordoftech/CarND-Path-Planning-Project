@@ -161,10 +161,10 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 }
 
 /*
- * Create spline in XY cordinator
+ * Create spline in XY Car cordinator
  */
 tk::spline createSpline(double pre_x, double pre_y, double ref_x, double ref_y, double ref_yaw,
-                        struct trajectory* traj, uint8_t lane,
+                        double car_s, uint8_t lane,
                         vector<double> previous_path_x, vector<double> previous_path_y,
                         vector<double> map_waypoints_s, vector<double> map_waypoints_x, vector<double> map_waypoints_y)
 {
@@ -180,45 +180,17 @@ tk::spline createSpline(double pre_x, double pre_y, double ref_x, double ref_y, 
   pts_y.push_back(pre_y);
   pts_y.push_back(ref_y);
 
-  vector<double> next_sd = getFrenet(ref_x, ref_y, ref_yaw, map_waypoints_x, map_waypoints_y);
-  double car_s = next_sd[0];
-  double car_d = next_sd[1];
-
-#ifdef VISUAL_DEBUG
-  if (traj != NULL)
-  {
-    graph->plot_trajectory(car_s, traj->s_coeffs, traj->d_coeffs, traj->T, Scalar(0, 255, 0));
-    //printf("Base on trajectory: t=%f : %f\n", traj->T, pts_x[1]);
-  }
-#endif
-
   for (uint8_t i = 1; i < 4; i++)
   {
     double next_s = 0.0;
     double next_d = 0.0;
-
-    /*if (traj != NULL)
-    {
-      // Base on trajectory
-      next_s = car_s + calculate(traj->s_coeffs, i*traj->T/3.0);
-      next_d = car_d - calculate(traj->d_coeffs, i*traj->T/3.0);
-      printf(" : %f", next_s);
-    }
-    else*/
-    {
-      // Base on lane
-      next_s = car_s + (double)i*DIST_PLANNING;
-      next_d = 2 + 4*lane;
-    }
+    // Base on lane
+    next_s = car_s + (double)i*DIST_PLANNING/2.0;
+    next_d = 2 + 4*lane;
 
     vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
     pts_x.push_back(next_xy[0]);
     pts_y.push_back(next_xy[1]);
-  }
-  if (traj != NULL)
-  {
-    //printf(" : %f : %f : %f", pts_x[2], pts_x[3], pts_x[4]);
-    //printf("\n");
   }
 
   // Transformation to car coordinates
@@ -247,11 +219,12 @@ tk::spline createSpline(double pre_x, double pre_y, double ref_x, double ref_y, 
 }
 
 void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
-              double ref_x, double ref_y, double ref_vel, double ref_yaw,
+              double car_s, double ref_x, double ref_y, double ref_vel, double ref_yaw,
               vector<double> previous_path_x, vector<double> previous_path_y,
               tk::spline s)
 {
   size_t pre_path_size = previous_path_x.size();
+
   // make 50 points for moving
   for (size_t i = 0; i < pre_path_size; i++)
   {
@@ -259,7 +232,7 @@ void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
     next_y_vals->push_back(previous_path_y[i]);
   }
 
-  double ref_vel_step = 0.02*ref_vel/2.24;
+  double ref_vel_step = 1.0/50.0*ref_vel/2.24;
 
   double target_x = DIST_PLANNING;
   double target_y = s(target_x);
@@ -378,6 +351,9 @@ int main() {
 #ifdef VISUAL_DEBUG
           graph->initGraph();
 #endif // VISUAL_DEBUG
+
+          // TODO: Should go straight when start
+
           size_t pre_path_size = previous_path_x.size();
 
           if (pre_path_size > 0)
@@ -402,17 +378,24 @@ int main() {
             // 0.02 seconds / frame
             check_car_s += (double)pre_path_size*0.02*check_speed;
 
-            // Just add which vehicles in the front of vehicle in range 2*DIST_PLANNING
+            // Just add which vehicles in the front of vehicle in range DIST_PLANNING
             // and in behide 2*VEHICLE_RADIUS
+            // and only in 3 lanes
             if (check_car_s > car_s-2*VEHICLE_RADIUS && 
-                check_car_s < car_s+2*DIST_PLANNING)
+                check_car_s < car_s+DIST_PLANNING &&
+                check_car_d >= 0 &&
+                check_car_d <= 12)
             {
               struct state start(check_car_s, check_speed, 0, check_car_d, 0, 0);
               Vehicle vehicle = Vehicle(start);
               predictions[check_car_id] = vehicle;
 #ifdef VISUAL_DEBUG
-              graph->plot_vehicle(car_s, TIME_PLANNING, Scalar(0, 0, 255), &vehicle);
+              graph->plot_vehicle(car_s, 0.2, Scalar(0, 0, 255), &vehicle);
 #endif // VISUAL_DEBUG
+            }
+            else
+            {
+              // Ignore others car
             }
           }
 
@@ -423,7 +406,7 @@ int main() {
 
           // Find the nearest vehicle in the front of us
           int8_t nearest_id = -1;
-          double nearest_s = car_s+2*DIST_PLANNING;
+          double nearest_s = car_s+DIST_PLANNING;
           for (std::map<int8_t, Vehicle>::iterator it=predictions.begin(); it!=predictions.end(); ++it)
           {
             double check_car_s = it->second.state_in(0).s.m;
@@ -457,7 +440,7 @@ int main() {
             {
               // Following
               //printf("Following\n");
-              delta.set(-DIST_PLANNING, 0, 0, 0, 0, 0); // planning following 22m : 1s
+              delta.set(-DIST_PLANNING, 0, 0, 0, 0, 0); // planning following 44m : 2s
               struct trajectory best = ptg->PTG(start_s, start_d, (uint8_t)nearest_id, delta, TIME_PLANNING, predictions);
               best_traj = &best;
             }
@@ -477,7 +460,7 @@ int main() {
                 else
                 {
                   // In our lane
-                  delta.set(-DIST_PLANNING, 0, 0, 0, 0, 0); // following behide DIST_PLANNING m
+                  delta.set(-DIST_PLANNING, 0, 0, 0, 0, 0); // planning following 44m : 2s
                 }
                 struct trajectory best = ptg->PTG(start_s, start_d, (uint8_t)nearest_id, delta, TIME_PLANNING, predictions);
                 map_cost[ptg->calculate_cost(best, (uint8_t)nearest_id, delta, TIME_PLANNING, predictions)][i] = &best;
@@ -489,24 +472,21 @@ int main() {
           }
           else
           {
-            // out of out lane -> keep lane
-            // Do nothing
-            //printf("Keep lane\n");
-#ifdef VISUAL_DEBUG
-            struct state car_start(car_s, car_speed, 0, car_d, 0, 0);
-            Vehicle car = Vehicle(car_start);
-            graph->plot_vehicle(car_s, TIME_PLANNING, Scalar(0, 255, 0), &car);
-#endif // VISUAL_DEBUG
-          }
-
-          // Control speed
-          if (too_close == true) // Decrease speed
-          {
-            ref_vel -= 0.224; // 0.1m/s -> acceleration = 0.1/0.02=5 m/s2 < 10 (target)
-          }
-          else if (ref_vel < SPEED_LIMIT) // Increase speed
-          {
-            ref_vel += 0.224;
+            // out of out lane
+            // Need to check case we're in lane 0, 1, 2 or out of these lanes
+            if (car_d >= 0 && car_d <= 12)
+            {
+              // Just keep lane
+              //printf("Keep lane\n");
+            }
+            else if (car_d < 0)
+            {
+              ref_lane = 0;
+            }
+            else
+            {
+              ref_lane = 2;
+            }
           }
 
           // Calculate pre_x/y ref_x/y
@@ -532,17 +512,76 @@ int main() {
             ref_yaw = atan2(ref_y-pre_y, ref_x-pre_x);
           }
 
-          //
-          tk::spline s = createSpline(pre_x, pre_y, 
-                                      ref_x, ref_y, ref_yaw,
-                                      best_traj, ref_lane,
-                                      previous_path_x, previous_path_y,
-                                      map_waypoints_s, map_waypoints_x, map_waypoints_y);
-
-          planPath(&next_x_vals, &next_y_vals,
-                    ref_x, ref_y, ref_vel, ref_yaw, 
-                    previous_path_x, previous_path_y, s);
+          vector<double> next_sd = getFrenet(ref_x, ref_y, ref_yaw, map_waypoints_x, map_waypoints_y);
+          car_s = next_sd[0]; // Update car_s base on ref_x, ref_y, ref_yaw
 #ifdef VISUAL_DEBUG
+          if (best_traj != NULL)
+          {
+            graph->plot_trajectory(car_s, best_traj->s_coeffs, best_traj->d_coeffs, best_traj->T, Scalar(0, 255, 0));
+          }
+#endif
+
+          // Control speed
+          if (too_close == true) // Decrease speed
+          {
+            ref_vel -= 0.224; // 0.1m/s -> acceleration = 0.1/0.02=5 m/s2 < 10 (target)
+          }
+          else if (ref_vel < SPEED_LIMIT) // Increase speed
+          {
+            ref_vel += 0.224;
+          }
+
+          // Create path base on trajectory
+          vector<double> ref_s;
+          vector<double> ref_d;
+
+          if (best_traj != NULL)
+          {
+            // make 50 points for moving
+            // TODO:
+            printf("X ");
+            printf(" %f :", car_x);
+            for (uint8_t i = 0; i < 50; i++)
+            {
+              double next_s = calculate(best_traj->s_coeffs, 2+i*0.02);
+              double next_d = calculate(best_traj->d_coeffs, 2+i*0.02);
+              ref_s.push_back(next_s);
+              ref_d.push_back(next_d);
+
+              vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+              next_x_vals.push_back(next_xy[0]);
+              next_y_vals.push_back(next_xy[1]);
+              if (i==0)
+                printf(" %f :", next_xy[0]);
+            }
+            printf("\n");
+          }
+          else
+          {
+            // Create spline
+            tk::spline s = createSpline(pre_x, pre_y, 
+                                        ref_x, ref_y, ref_yaw,
+                                        car_s, ref_lane,
+                                        previous_path_x, previous_path_y,
+                                        map_waypoints_s, map_waypoints_x, map_waypoints_y);
+
+            // Make planning path
+            planPath(&next_x_vals, &next_y_vals,
+                      car_s, ref_x, ref_y, ref_vel, ref_yaw, 
+                      previous_path_x, previous_path_y, s);
+          }
+
+#ifdef VISUAL_DEBUG
+          if (ref_s.size() > 0)
+          {
+            graph->plot_vehicle(ref_s[0], ref_d, ref_s, Scalar(0, 255, 0));
+          }
+          else
+          {
+            struct state start(car_s, car_speed, 0, car_d, 0, 0);
+            Vehicle vehicle = Vehicle(start);
+            graph->plot_vehicle(car_s, 0.2, Scalar(0, 255, 0), &vehicle);
+          }
           graph->show_trajectory();
 #endif // VISUAL_DEBUG
           // END IMPLEMENTATION

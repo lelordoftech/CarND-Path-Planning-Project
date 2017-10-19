@@ -15,11 +15,16 @@ using namespace cv;
 #define MAX_ACCEL                 10.0 // m/s/s
 #define EXPECTED_JERK_IN_ONE_SEC  2.0 // m/s/s
 #define EXPECTED_ACC_IN_ONE_SEC   1.0 // m/s
-#define SPEED_LIMIT               49.5 // mph
+#define SPEED_LIMIT               49.5 // mph ~ 22m/s
 #define VEHICLE_RADIUS            1.5 // m: model vehicle as circle to simplify collision detection
 // max speed is 49.5 mph = 49.5/2.24=22m/s
-#define TIME_PLANNING             1.0 // s
-#define DIST_PLANNING             49.5/2.24*TIME_PLANNING // ~22m
+#define TIME_PLANNING             2.0 // s
+#define DIST_PLANNING             49.5/2.24*TIME_PLANNING
+
+#ifdef VISUAL_DEBUG
+#define GRAPH_WIDTH               320
+#define GRAPH_HEIGHT              440+4*VEHICLE_RADIUS*20
+#endif
 
 const double SIGMA_S[3] = {10.0, 4.0, 2.0}; // s, s_dot, s_double_dot
 const double SIGMA_D[3] = {1.0, 1.0, 1.0};
@@ -139,6 +144,7 @@ public:
   void gen_trajectory(double car_s, std::vector<double>& X, std::vector<double>& Y, Scalar color = Scalar(255, 0, 0));
   void plot_trajectory(double car_s, double* s_coeffs, double* d_coeffs, double T, Scalar color = Scalar(255, 0, 0), bool isShow = false);
   void plot_vehicle(double car_s, double T, Scalar color = Scalar(0, 255, 0), Vehicle* vehicle = NULL, bool isShow = false);
+  void plot_vehicle(double car_s, std::vector<double>& X, std::vector<double>& Y, Scalar color, bool isShow = false);
   uint8_t show_trajectory();
 #endif // VISUAL_DEBUG
 };

@@ -149,12 +149,27 @@ Graph::~Graph()
 void Graph::initGraph()
 {
   // Create black empty images
-  g_image = Mat::zeros(440, 320, CV_8UC3);
+  g_image = Mat::zeros(GRAPH_HEIGHT, GRAPH_WIDTH, CV_8UC3);
   // Draw 3 lanes
-  line(g_image, Point(40, 0), Point(40, 440), Scalar(110, 220, 0), 2, 8);
-  line(g_image, Point(120, 0), Point(120, 440), Scalar(110, 220, 0), 2, 8);
-  line(g_image, Point(200, 0), Point(200, 440), Scalar(110, 220, 0), 2, 8);
-  line(g_image, Point(280, 0), Point(280, 440), Scalar(110, 220, 0), 2, 8);
+  line(g_image, Point(40, 0), Point(40, GRAPH_HEIGHT), Scalar(0, 255, 255), 2, 8);
+  for (uint8_t i = 0; i < (uint8_t)GRAPH_HEIGHT/(4*10)-1; i+=2)
+  {
+    // Lane line width 2m
+    line(g_image, Point(120, GRAPH_HEIGHT-i*2*10), Point(120, GRAPH_HEIGHT-(i+1)*2*10), Scalar(255, 255, 255), 2, 8);
+    line(g_image, Point(200, GRAPH_HEIGHT-i*2*10), Point(200, GRAPH_HEIGHT-(i+1)*2*10), Scalar(255, 255, 255), 2, 8);
+    line(g_image, Point(280, GRAPH_HEIGHT-i*2*10), Point(280, GRAPH_HEIGHT-(i+1)*2*10), Scalar(255, 255, 255), 2, 8);
+  }
+  // Draw text
+  char text[4] = "";
+  int fontFace = FONT_HERSHEY_SCRIPT_SIMPLEX;
+  double fontScale = 0.5;
+  int thickness = 1;
+  for (uint8_t i = 0; i < 11; i++)
+  {
+    sprintf(text, "%2d m", i*5);
+    putText(g_image, text, Point(0, GRAPH_HEIGHT - 2*VEHICLE_RADIUS*10 - i*5*10), 
+            fontFace, fontScale, Scalar(255, 255, 255), thickness, 8);
+  }
 }
 
 /*
@@ -165,7 +180,10 @@ void Graph::gen_trajectory(double car_s, std::vector<double>& X, std::vector<dou
   // Draw graph
   for (int i = 0; i < X.size()-1; i++)
   {
-    line(g_image, Point(40+X[i]*20, 440 - (Y[i]-car_s)*20), Point(40+X[i+1]*20, 440 - (Y[i+1]-car_s)*20), color, 1, 8);
+    line(g_image, 
+          Point(40+X[i]*20, GRAPH_HEIGHT - 2*VEHICLE_RADIUS*10 - (Y[i]-car_s)*10), 
+          Point(40+X[i+1]*20, GRAPH_HEIGHT - 2*VEHICLE_RADIUS*10 - (Y[i+1]-car_s)*10), 
+          color, 1, 8);
   }
 }
 
@@ -209,8 +227,27 @@ void Graph::plot_vehicle(double car_s, double T, Scalar color, Vehicle* vehicle,
   if (vehicle != NULL)
   {
     gen_trajectory(car_s, D, S, color);
-    circle(g_image, Point(40+D[0]*20, 440 - (S[0]-car_s)*20), 10, color, 1, 8);
+    circle(g_image, 
+            Point(40+D[0]*20, GRAPH_HEIGHT - 2*VEHICLE_RADIUS*10 - (S[0]-car_s)*10), 
+            10, 
+            color, 1, 8);
   }
+  if (isShow == true)
+  {
+    show_trajectory();
+  }
+}
+
+/*
+ * Plot vehicle into graph base on points
+ */
+void Graph::plot_vehicle(double car_s, std::vector<double>& X, std::vector<double>& Y, Scalar color, bool isShow)
+{
+  gen_trajectory(car_s, X, Y, color);
+  circle(g_image, 
+          Point(40+X[0]*20, GRAPH_HEIGHT - 2*VEHICLE_RADIUS*10 - (Y[0]-car_s)*10), 
+          10, 
+          color, 1, 8);
   if (isShow == true)
   {
     show_trajectory();
