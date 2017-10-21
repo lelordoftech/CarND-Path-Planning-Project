@@ -4,11 +4,11 @@
 int main()
 {
   // [s, s_dot, s_ddot, d, d_dot, d_ddot]
-  struct state start1(20, 10, 0, 2.5, 0, 0);
+  struct state start1(44, 15, 0, 2.5, 0, 0);
   Vehicle vehicle1 = Vehicle(start1); // leading vehicle
-  struct state start2(1, 10, 0, 6, 0, 0); // go straight with constant velocity 15m/s
+  struct state start2(50, 15, 0, 6, 0, 0); // go straight with constant velocity 15m/s
   Vehicle vehicle2 = Vehicle(start2); // leading vehicle 2
-  struct state start3(25, 10, 0, 10, 0, 0); // go straight with constant velocity 15m/s
+  struct state start3(40, 15, 0, 10, 0, 0); // go straight with constant velocity 15m/s
   Vehicle vehicle3 = Vehicle(start3); // leading vehicle 3
   std::map<int8_t, Vehicle> predictions;
   int8_t target_id_1 = 0;
@@ -39,9 +39,9 @@ int main()
   printf("Cost 3: %f\n", cost3);
 
 #ifdef VISUAL_DEBUG
-  graph->plot_trajectory(0, best1.s_coeffs, best1.d_coeffs, best1.T, Scalar(0, 255, 0));  
-  graph->plot_trajectory(0, best2.s_coeffs, best2.d_coeffs, best2.T, Scalar(0, 255, 0));  
-  graph->plot_trajectory(0, best3.s_coeffs, best3.d_coeffs, best3.T, Scalar(0, 255, 0));  
+  graph->plot_trajectory(0, &best1, Scalar(0, 255, 0));  
+  graph->plot_trajectory(0, &best2, Scalar(0, 255, 0));  
+  graph->plot_trajectory(0, &best3, Scalar(0, 255, 0));  
   graph->plot_vehicle(0, best1.T, Scalar(0, 0, 255), &vehicle1);
   graph->plot_vehicle(0, best3.T, Scalar(0, 0, 255), &vehicle2);
   graph->plot_vehicle(0, best3.T, Scalar(0, 0, 255), &vehicle3);

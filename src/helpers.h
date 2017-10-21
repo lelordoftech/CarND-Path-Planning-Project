@@ -22,8 +22,10 @@ using namespace cv;
 #define DIST_PLANNING             49.5/2.24*TIME_PLANNING
 
 #ifdef VISUAL_DEBUG
-#define GRAPH_WIDTH               320
-#define GRAPH_HEIGHT              440+4*VEHICLE_RADIUS*20
+#define SCALE_WIDTH               20
+#define SCALE_HEIGHT              5
+#define GRAPH_WIDTH               16*SCALE_WIDTH // 16m, scale 20px
+#define GRAPH_HEIGHT              (2*DIST_PLANNING+12+4*VEHICLE_RADIUS)*SCALE_HEIGHT // 88m+12m+6m scale 5px
 #endif
 
 const double SIGMA_S[3] = {10.0, 4.0, 2.0}; // s, s_dot, s_double_dot
@@ -127,10 +129,7 @@ class Graph
 public:
   Graph();
   ~Graph();
-private:
-  Mat g_image;
-  static Graph* g_instance;
-public:
+
   static Graph* getInstance()
   {
     if (g_instance == NULL)
@@ -141,11 +140,14 @@ public:
   };
 
   void initGraph();
-  void gen_trajectory(double car_s, std::vector<double>& X, std::vector<double>& Y, Scalar color = Scalar(255, 0, 0));
-  void plot_trajectory(double car_s, double* s_coeffs, double* d_coeffs, double T, Scalar color = Scalar(255, 0, 0), bool isShow = false);
+  void plot_trajectory(double car_s, struct trajectory* traj, Scalar color = Scalar(255, 0, 0), bool isShow = false);
   void plot_vehicle(double car_s, double T, Scalar color = Scalar(0, 255, 0), Vehicle* vehicle = NULL, bool isShow = false);
-  void plot_vehicle(double car_s, std::vector<double>& X, std::vector<double>& Y, Scalar color, bool isShow = false);
+  void plot_vehicle(double car_s, std::vector<double>* X, std::vector<double>* Y, Scalar color, bool isShow = false);
   uint8_t show_trajectory();
+private:
+  Mat g_image;
+  static Graph* g_instance;
+  void gen_trajectory(double car_s, std::vector<double>* X, std::vector<double>* Y, Scalar color = Scalar(255, 0, 0));
 #endif // VISUAL_DEBUG
 };
 

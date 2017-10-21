@@ -66,7 +66,7 @@ struct trajectory Ptg::PTG(struct model start_s, struct model start_d, int8_t ta
 
     cost_traj[cost] = traj;
 #ifdef VISUAL_DEBUG
-    graph->plot_trajectory(start_s.m, traj.s_coeffs, traj.d_coeffs, traj.T);
+    graph->plot_trajectory(start_s.m, &traj);
 #endif // VISUAL_DEBUG
   }
 
