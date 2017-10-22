@@ -9,7 +9,7 @@
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
-typedef double (*function)(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose);
+typedef double (*function)(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose);
 typedef std::map<int8_t, std::map<int8_t, function>> weight_func_map;
 
 class Ptg
@@ -35,12 +35,12 @@ public:
   };
   ~Ptg(){};
 
-  struct trajectory PTG(struct model start_s, struct model start_d, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions);
-  double calculate_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double goal_t, std::map<int8_t, Vehicle> predictions, bool verbose=false);
+  struct trajectory* PTG(struct state* ref_state, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions);
+  struct trajectory* PTG(struct state* ref_state, struct state* target_state, double T, std::map<int8_t, Vehicle>* predictions);
+  double calculate_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double goal_t, std::map<int8_t, Vehicle>* predictions, bool verbose=false);
 
 private:
-  struct state perturb_goal(struct model goal_s, struct model goal_d);
-  void JMT(double* coeffs, struct model start, struct model end, double T);
+  void JMT(double* coeffs, struct model* start, struct model* end, double T);
 };
 
 #endif // PTG_FUNC_H

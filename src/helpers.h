@@ -78,23 +78,23 @@ struct state
     s.set(new_s, new_s_dot, new_s_ddot);
     d.set(new_d, new_d_dot, new_d_ddot);
   };
-  void add(struct model new_s, struct model new_d)
+  void add(struct model* new_s, struct model* new_d)
   {
-    s.m += new_s.m;
-    s.m_dot += new_s.m_dot;
-    s.m_ddot += new_s.m_ddot;
-    d.m += new_d.m;
-    d.m_dot += new_d.m_dot;
-    d.m_ddot += new_d.m_ddot;
+    s.m += new_s->m;
+    s.m_dot += new_s->m_dot;
+    s.m_ddot += new_s->m_ddot;
+    d.m += new_d->m;
+    d.m_dot += new_d->m_dot;
+    d.m_ddot += new_d->m_ddot;
   };
-  void add(struct state new_state)
+  void add(struct state* new_state)
   {
-    s.m += new_state.s.m;
-    s.m_dot += new_state.s.m_dot;
-    s.m_ddot += new_state.s.m_ddot;
-    d.m += new_state.d.m;
-    d.m_dot += new_state.d.m_dot;
-    d.m_ddot += new_state.d.m_ddot;
+    s.m += new_state->s.m;
+    s.m_dot += new_state->s.m_dot;
+    s.m_ddot += new_state->s.m_ddot;
+    d.m += new_state->d.m;
+    d.m_dot += new_state->d.m_dot;
+    d.m_ddot += new_state->d.m_ddot;
   };
 };
 
@@ -111,7 +111,7 @@ private:
   struct state start_state;
 public:
   Vehicle();
-  Vehicle(struct state start);
+  Vehicle(struct state* start);
   ~Vehicle();
   struct state state_in(double t);
 };
@@ -120,8 +120,8 @@ double calculate(double* coeffs, double t, uint8_t N=6);
 double logistic(double x);
 void differentiate(double* out_coeffs, double* coefficients, uint8_t N=5);
 void get_f_and_N_derivatives(double* out_coeffs, double* coeffs, uint8_t N, double T);
-double nearest_approach(struct trajectory traj, Vehicle vehicle);
-double nearest_approach_to_any_vehicle(struct trajectory traj, std::map<int8_t, Vehicle> vehicles);
+double nearest_approach(struct trajectory* traj, Vehicle* vehicle);
+double nearest_approach_to_any_vehicle(struct trajectory* traj, std::map<int8_t, Vehicle>* vehicles);
 
 #ifdef VISUAL_DEBUG
 class Graph

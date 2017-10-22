@@ -9,9 +9,9 @@ Vehicle::Vehicle()
   // Do nothing
 }
 
-Vehicle::Vehicle(struct state start)
+Vehicle::Vehicle(struct state* start)
 {
-  memcpy(&start_state, &start, sizeof(struct state));
+  memcpy(&start_state, start, sizeof(struct state));
 }
 
 Vehicle::~Vehicle()
@@ -89,18 +89,18 @@ void get_f_and_N_derivatives(double* out_coeffs, double* coeffs, uint8_t N, doub
 /*
  * Calculates the closest distance to vehicle during a trajectory.
  */
-double nearest_approach(struct trajectory traj, Vehicle vehicle)
+double nearest_approach(struct trajectory* traj, Vehicle* vehicle)
 {
   double closest = 999999;
-  double* s_ = traj.s_coeffs;
-  double* d_ = traj.d_coeffs;
-  double T = traj.T;
+  double* s_ = traj->s_coeffs;
+  double* d_ = traj->d_coeffs;
+  double T = traj->T;
   for (uint8_t i = 0; i < 10; i++)
   {
     double t = double(i) / 100 * T;
     double cur_s = calculate(s_, t);
     double cur_d = calculate(d_, t);
-    struct state curr_state = vehicle.state_in(t);
+    struct state curr_state = vehicle->state_in(t);
     double targ_s = curr_state.s.m;
     double targ_d = curr_state.d.m;
     double dist = sqrt(pow(cur_s-targ_s, 2) + pow(cur_d-targ_d, 2));
@@ -115,13 +115,13 @@ double nearest_approach(struct trajectory traj, Vehicle vehicle)
 /*
  * Calculates the closest distance to any vehicle during a trajectory.
  */
-double nearest_approach_to_any_vehicle(struct trajectory traj, std::map<int8_t, Vehicle> vehicles)
+double nearest_approach_to_any_vehicle(struct trajectory* traj, std::map<int8_t, Vehicle>* vehicles)
 {
   double closest = 999999;
-  for (std::map<int8_t, Vehicle>::iterator it=vehicles.begin(); it!=vehicles.end(); ++it)
+  for (std::map<int8_t, Vehicle>::iterator it=vehicles->begin(); it!=vehicles->end(); ++it)
   {
     Vehicle v = it->second;
-    double d = nearest_approach(traj, v);
+    double d = nearest_approach(traj, &v);
     if (d < closest)
     {
       closest = d;

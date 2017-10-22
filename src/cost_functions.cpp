@@ -5,10 +5,10 @@
  * Penalizes trajectories that span a duration which is longer or 
  *  shorter than the duration requested.
  */
-double time_diff_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double time_diff_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  double t = traj.T;
+  double t = traj->T;
   cost = logistic(double(abs(t-T)) / T);
 
   if (verbose == true)
@@ -22,12 +22,16 @@ double time_diff_cost(struct trajectory traj, int8_t target_vehicle, struct stat
  * Penalizes trajectories whose s coordinate (and derivatives) 
  *  differ from the goal.
  */
-double s_diff_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double s_diff_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  double* s = traj.s_coeffs;
-  double t = traj.T;
-  struct state target = predictions[target_vehicle].state_in(t);
+  double* s = traj->s_coeffs;
+  double t = traj->T;
+  struct state target;
+  if (target_vehicle > -1)
+  {
+    target = (*predictions)[target_vehicle].state_in(t);
+  }
   target.add(delta);
   double* s_targ = (double*)&target.s;
   double S[3];
@@ -53,11 +57,11 @@ double s_diff_cost(struct trajectory traj, int8_t target_vehicle, struct state d
  * Penalizes trajectories whose d coordinate (and derivatives) 
  *  differ from the goal.
  */
-double d_diff_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double d_diff_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  double* d_coeffs = traj.d_coeffs;
-  double t = traj.T;
+  double* d_coeffs = traj->d_coeffs;
+  double t = traj->T;
   double d_dot_coeffs[5];
   differentiate(d_dot_coeffs, d_coeffs, 5);
   double d_ddot_coeffs[4];
@@ -67,7 +71,11 @@ double d_diff_cost(struct trajectory traj, int8_t target_vehicle, struct state d
   double d_ddot = calculate(d_ddot_coeffs, t, 4);
   double D[3] = {d, d_dot, d_ddot};
   
-  struct state target = predictions[target_vehicle].state_in(t);
+  struct state target;
+  if (target_vehicle > -1)
+  {  
+    target = (*predictions)[target_vehicle].state_in(t);
+  }
   target.add(delta);
   double* d_targ = (double*)&target.d;
 
@@ -90,7 +98,7 @@ double d_diff_cost(struct trajectory traj, int8_t target_vehicle, struct state d
 /*
  * Binary cost function which penalizes collisions.
  */
-double collision_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double collision_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
   double nearest = nearest_approach_to_any_vehicle(traj, predictions);
@@ -113,7 +121,7 @@ double collision_cost(struct trajectory traj, int8_t target_vehicle, struct stat
 /*
  * Penalizes getting close to other vehicles.
  */
-double buffer_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double buffer_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
   double nearest = nearest_approach_to_any_vehicle(traj, predictions);
@@ -129,7 +137,7 @@ double buffer_cost(struct trajectory traj, int8_t target_vehicle, struct state d
 /*
  * Penalizes stays on road.
  */
-double stays_on_road_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double stays_on_road_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
   // TODO
@@ -144,7 +152,7 @@ double stays_on_road_cost(struct trajectory traj, int8_t target_vehicle, struct 
 /*
  * Penalizes exceeds speed limit.
  */
-double exceeds_speed_limit_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double exceeds_speed_limit_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
   // TODO
@@ -159,13 +167,13 @@ double exceeds_speed_limit_cost(struct trajectory traj, int8_t target_vehicle, s
 /*
  * Rewards high average speeds.
  */
-double efficiency_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double efficiency_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  double* s = traj.s_coeffs;
-  double t = traj.T;
+  double* s = traj->s_coeffs;
+  double t = traj->T;
   double avg_v = double(calculate(s, t)) / t;
-  struct state curr_state = predictions[target_vehicle].state_in(t);
+  struct state curr_state = (*predictions)[target_vehicle].state_in(t);
   double targ_s = curr_state.s.m;
   double targ_v = double(targ_s) / t;
   cost = logistic(2*double(targ_v - avg_v) / avg_v);
@@ -180,12 +188,12 @@ double efficiency_cost(struct trajectory traj, int8_t target_vehicle, struct sta
 /*
  * Penalizes total accel.
  */
-double total_accel_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double total_accel_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  double* s = traj.s_coeffs;
-  double* d = traj.d_coeffs;
-  double t = traj.T;
+  double* s = traj->s_coeffs;
+  double* d = traj->d_coeffs;
+  double t = traj->T;
   double s_dot[5];
   differentiate(s_dot, s, 5);
   double s_d_dot[4];
@@ -212,12 +220,12 @@ double total_accel_cost(struct trajectory traj, int8_t target_vehicle, struct st
 /*
  * Penalizes max accel.
  */
-double max_accel_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double max_accel_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  double* s = traj.s_coeffs;
-  double* d = traj.d_coeffs;
-  double t = traj.T;
+  double* s = traj->s_coeffs;
+  double* d = traj->d_coeffs;
+  double t = traj->T;
   double s_dot[5];
   differentiate(s_dot, s, 5);
   double s_d_dot[4];
@@ -247,12 +255,12 @@ double max_accel_cost(struct trajectory traj, int8_t target_vehicle, struct stat
 /*
  * Penalizes max jerk.
  */
-double max_jerk_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double max_jerk_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  double* s = traj.s_coeffs;
-  double* d = traj.d_coeffs;
-  double t = traj.T;
+  double* s = traj->s_coeffs;
+  double* d = traj->d_coeffs;
+  double t = traj->T;
   double s_dot[5];
   differentiate(s_dot, s, 5);
   double s_d_dot[4];
@@ -284,12 +292,12 @@ double max_jerk_cost(struct trajectory traj, int8_t target_vehicle, struct state
 /*
  * Penalizes total jerk.
  */
-double total_jerk_cost(struct trajectory traj, int8_t target_vehicle, struct state delta, double T, std::map<int8_t, Vehicle> predictions, bool verbose)
+double total_jerk_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  double* s = traj.s_coeffs;
-  double* d = traj.d_coeffs;
-  double t = traj.T;
+  double* s = traj->s_coeffs;
+  double* d = traj->d_coeffs;
+  double t = traj->T;
   double s_dot[5];
   differentiate(s_dot, s, 5);
   double s_d_dot[4];

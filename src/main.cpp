@@ -195,7 +195,7 @@ void vehicle_map(std::map<int8_t, Vehicle>* predictions,
         check_d <= 12)
     {
       struct state start(check_s, check_speed, 0, check_d, 0, 0);
-      Vehicle vehicle = Vehicle(start);
+      Vehicle vehicle = Vehicle(&start);
       (*predictions)[check_id] = vehicle;
     }
     else
@@ -259,61 +259,71 @@ int8_t find_nearest_vehicle(std::map<int8_t, Vehicle>* predictions,
  * @output: ref_lane - lane of our Car in the future
  * @output: is_too_close - determine case need to slow down speed
  */
-bool find_best_traj(struct trajectory* best_traj, int8_t* ref_lane,
+int8_t find_best_traj(struct trajectory** best_traj, int8_t ref_lane,
                     int8_t vehicle_id, std::map<int8_t, Vehicle>* predictions,
                     Ptg* ptg, struct state* ref_state)
 {
-  bool is_too_close = false;
-
-  Vehicle vehicle = predictions->at(vehicle_id);
-  double check_s = vehicle.state_in(0).s.m;
-  double check_d = vehicle.state_in(0).d.m;
-  struct state delta;
-
-  if (check_s > ref_state->s.m+DIST_PLANNING)
+  if (vehicle_id == -1)
   {
-    // Following
-    delta.set(-DIST_PLANNING, 0, 0, 0, 0, 0); // planning following DIST_PLANNING
-    struct trajectory best = ptg->PTG(ref_state->s, ref_state->d, vehicle_id, delta, TIME_PLANNING, *predictions);
-    memcpy(best_traj, &best, sizeof(struct trajectory));
+    // Go straight
+    // We create a virtual vehicle with same state with us,
+    // and try to keep follow this virtual vehicle
+    double target_s = ref_state->s.m+DIST_PLANNING;
+    double target_s_dot = SPEED_LIMIT/2.24;
+    double target_d = (2+ref_lane*4);
+    struct state target(target_s, target_s_dot, 0, target_d, 0, 0);
+    *best_traj = ptg->PTG(ref_state, &target, TIME_PLANNING, predictions);
   }
   else
   {
-    // Switch lane
-    is_too_close = true;
-    std::map<double, std::map<int8_t, struct trajectory*>> map_cost; // [cost : lane : traj]
+    Vehicle vehicle = predictions->at(vehicle_id);
+    double check_s = vehicle.state_in(0).s.m;
+    double check_d = vehicle.state_in(0).d.m;
+    struct state delta;
 
-    for (int8_t i = 0; i < 3; i++)
+    if (check_s > ref_state->s.m+DIST_PLANNING)
     {
-      if (i != (*ref_lane))
+      // Following
+      double delta_d = (2+ref_lane*4) - check_d;
+      delta.set(-DIST_PLANNING, 0, 0, delta_d, 0, 0); // planning following DIST_PLANNING in the center
+      *best_traj = ptg->PTG(ref_state, vehicle_id, &delta, TIME_PLANNING, predictions);
+    }
+    else
+    {
+      // Switch lane
+      std::map<double, std::map<int8_t, struct trajectory*>> map_cost; // [cost : lane : traj]
+
+      for (int8_t i = 0; i < 3; i++)
       {
-        // In other lanes
-        double delta_d = 4*(i-(*ref_lane)) - (2+(*ref_lane)*4-check_d);
-        delta.set(0, 0, 0, delta_d, 0, 0); // switch lane to center
-      }
-      else
-      {
-        // In our lane
-        if (check_s > ref_state->s.m+DIST_PLANNING)
+        if (i != ref_lane)
         {
-          delta.set(-DIST_PLANNING, 0, 0, 0, 0, 0); // planning following 44m : 2s
+          // In other lanes
+          double delta_d = 4*(i-ref_lane) - (2+ref_lane*4-check_d);
+          delta.set(0, 0, 0, delta_d, 0, 0); // switch lane to center
         }
         else
         {
+          // In our lane
           // TODO
         }
+        struct trajectory* best = ptg->PTG(ref_state, vehicle_id, &delta, TIME_PLANNING, predictions);
+        if (best != NULL)
+        {
+          double cost = ptg->calculate_cost(best, vehicle_id, &delta, TIME_PLANNING, predictions);
+          map_cost[cost][i] = best; // Sort by cost to find minimum cost easier
+        }
       }
-      struct trajectory best = ptg->PTG(ref_state->s, ref_state->d, vehicle_id, delta, TIME_PLANNING, *predictions);
-      double cost = ptg->calculate_cost(best, vehicle_id, delta, TIME_PLANNING, *predictions);
-      map_cost[cost][i] = &best; // Sort by cost to find minimum cost easier
-    }
 
-    // Find best choice
-    *ref_lane = map_cost.begin()->second.begin()->first;
-    memcpy(best_traj, map_cost.begin()->second.begin()->second, sizeof(struct trajectory));
+      // Find best choice
+      if (map_cost.size() > 0)
+      {
+        ref_lane = map_cost.begin()->second.begin()->first;
+        *best_traj = map_cost.begin()->second.begin()->second;
+      }
+    }
   }
 
-  return is_too_close;
+  return ref_lane;
 }
 
 /*
@@ -448,25 +458,26 @@ void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
     double next_d = calculate(traj->d_coeffs, i*0.02);
 
     vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-    printf(": %f", next_xy[0]);
 
     // Wrong convert case
     // Predict base on previous values
     uint8_t size = next_x_vals->size();
-    double curr_vel = distance(next_xy[0], next_xy[1], (*next_x_vals)[size-1], (*next_y_vals)[size-1])/0.02;
-    if (curr_vel > ref_vel/2.24)
+    if (size >= 2)
     {
-      next_xy[0] = 2*(*next_x_vals)[size-1]-(*next_x_vals)[size-2];
-      next_xy[1] = 2*(*next_y_vals)[size-1]-(*next_y_vals)[size-2];
-    }
-    else
-    {
-      // Do nothing
+      double curr_vel = distance(next_xy[0], next_xy[1], (*next_x_vals)[size-1], (*next_y_vals)[size-1])/0.02;
+      if (curr_vel > ref_vel/2.24)
+      {
+        next_xy[0] = 2*(*next_x_vals)[size-1]-(*next_x_vals)[size-2];
+        next_xy[1] = 2*(*next_y_vals)[size-1]-(*next_y_vals)[size-2];
+      }
+      else
+      {
+        // Do nothing
+      }
     }
 
     next_x_vals->push_back(next_xy[0]);
     next_y_vals->push_back(next_xy[1]);
-    //printf(": %f", next_x_vals[next_x_vals.size()-1]);
   }
   printf("\n");
 }
@@ -574,7 +585,7 @@ int main() {
           double ref_s = 0.0;
           double ref_d = 0.0;
           double ref_yaw = 0.0;
-          double ref_speed = car_speed;
+          double ref_speed = car_speed/2.24; // convert mph to m/s
           uint8_t pre_path_size = previous_path_x.size();
 
           if (pre_path_size < 2)
@@ -591,7 +602,7 @@ int main() {
             pre_y = previous_path_y[pre_path_size-2];
             ref_x = previous_path_x[pre_path_size-1];
             ref_y = previous_path_y[pre_path_size-1];
-            ref_yaw = atan2(ref_y-pre_y, ref_x-pre_x);
+            ref_yaw = atan2((ref_y-pre_y), (ref_x-pre_x));
           }
 
           if (pre_path_size > 0)
@@ -622,44 +633,19 @@ int main() {
                                                     ref_lane, ref_s);
 
           // Step 4: Find the best trajectory, best ref_lane
-          bool too_close = false;
-          if (ref_d >= 0 && ref_d <= 12)
-          {
-            if (nearest_id > -1)
-            {
-              struct state ref_state(ref_s, ref_speed, 0, ref_d, 0, 0);
-              if (best_traj == NULL)
-              {
-                best_traj = new trajectory();
-              }
-              too_close = find_best_traj(best_traj, &ref_lane,
-                                        nearest_id, &predictions,
-                                        ptg, &ref_state);
-            }
-            else
-            {
-              // out of out lane
-              // Just go straight
-            }
-          }
-          else if (ref_d < 0)
+          struct state ref_state(ref_s, ref_speed, 0, ref_d, 0, 0);
+          if (ref_d < 0)
           {
             ref_lane = 0;
           }
-          else
+          else if (ref_d > 12)
           {
             ref_lane = 2;
           }
 
-          // Step 5: Control speed
-          if (too_close == true) // Decrease speed
-          {
-            ref_vel -= 0.224; // 0.1m/s -> acceleration = 0.1/0.02=5 m/s2 < 10 (target)
-          }
-          else if (ref_vel < SPEED_LIMIT) // Increase speed
-          {
-            ref_vel += 0.224;
-          }
+          ref_lane = find_best_traj(&best_traj, ref_lane,
+                                    nearest_id, &predictions,
+                                    ptg, &ref_state);
 
           // Step 6: Create path : 50 points
           for (uint8_t i = 0; i < pre_path_size; i++)
@@ -668,26 +654,31 @@ int main() {
             next_y_vals.push_back(previous_path_y[i]);
           }
 
-          /*if (best_traj != NULL)
+          if (pre_path_size <= 20)
           {
-            //printf("X gene: %f", ref_x);
-            planPath(&next_x_vals, &next_y_vals,
-                      ref_vel, pre_path_size,
-                      map_waypoints_s, map_waypoints_x, map_waypoints_y,
-                      best_traj);
-          }
-          else*/
-          {
-            // Create spline
-            tk::spline s = createSpline(pre_x, pre_y,
-                                        ref_x, ref_y, ref_yaw,
-                                        ref_s, ref_lane,
-                                        map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            if (best_traj != NULL)
+            {
+              //printf("X gene: %f", ref_x);
+              planPath(&next_x_vals, &next_y_vals,
+                        ref_vel, pre_path_size,
+                        map_waypoints_s, map_waypoints_x, map_waypoints_y,
+                        best_traj);
+              /*/ Create spline
+              tk::spline s = createSpline(pre_x, pre_y,
+                                          ref_x, ref_y, ref_yaw,
+                                          ref_s, ref_lane,
+                                          map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
-            // Make planning path
-            planPath(&next_x_vals, &next_y_vals,
-                      ref_s, ref_x, ref_y, ref_vel, ref_yaw,
-                      pre_path_size, s);
+              // Make planning path
+              planPath(&next_x_vals, &next_y_vals,
+                        ref_s, ref_x, ref_y, ref_vel, ref_yaw,
+                        pre_path_size, s);
+              */
+            }
+            else
+            {
+              printf("[ERROR] Can not find traj\n");
+            }
           }
 
 #ifdef VISUAL_DEBUG
@@ -698,8 +689,8 @@ int main() {
           }
 
           struct state start(ref_s, ref_speed, 0, ref_d, 0, 0);
-          Vehicle vehicle = Vehicle(start);
-          graph->plot_vehicle(ref_s, 1, Scalar(0, 255, 0), &vehicle);
+          Vehicle vehicle = Vehicle(&start);
+          graph->plot_vehicle(ref_s, TIME_PLANNING, Scalar(0, 255, 0), &vehicle);
 
           graph->show_trajectory();
 
