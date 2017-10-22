@@ -363,12 +363,8 @@ tk::spline createSpline(double pre_x, double pre_y,
 
   for (uint8_t i = 1; i < 4; i++)
   {
-    double next_s = 0.0;
-    double next_d = 0.0;
-    // Base on lane
-    next_s = ref_s + (double)i*DIST_PLANNING;
-    next_d = (double)(2 + 4*ref_lane);
-
+    double next_s = ref_s + (double)i*DIST_PLANNING;
+    double next_d = (double)(2 + 4*ref_lane);
     vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
     pts_x.push_back(next_xy[0]);
     pts_y.push_back(next_xy[1]);
@@ -452,16 +448,23 @@ void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
               vector<double> map_waypoints_s, vector<double> map_waypoints_x, vector<double> map_waypoints_y, 
               struct trajectory* traj)
 {
-  for (uint8_t i = 0; i < 50-pre_path_size; i++)
+  double time_step = 0.02;
+  uint8_t step = (uint8_t)(traj->T/time_step);
+  if (step > 50-pre_path_size)
   {
-    double next_s = calculate(traj->s_coeffs, i*0.02);
-    double next_d = calculate(traj->d_coeffs, i*0.02);
+    step = 50-pre_path_size;
+  }
+  printf("step %d\n", step);
+  for (uint8_t i = 0; i < step; i++)
+  {
+    double next_s = calculate(traj->s_coeffs, i*time_step);
+    double next_d = calculate(traj->d_coeffs, i*time_step);
 
     vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
     // Wrong convert case
     // Predict base on previous values
-    uint8_t size = next_x_vals->size();
+    /*uint8_t size = next_x_vals->size();
     if (size >= 2)
     {
       double curr_vel = distance(next_xy[0], next_xy[1], (*next_x_vals)[size-1], (*next_y_vals)[size-1])/0.02;
@@ -474,10 +477,11 @@ void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
       {
         // Do nothing
       }
-    }
+    }*/
 
     next_x_vals->push_back(next_xy[0]);
     next_y_vals->push_back(next_xy[1]);
+    printf("%f %f %f %f\n", next_d, next_s, next_xy[0], next_xy[1]);
   }
   printf("\n");
 }
@@ -647,18 +651,17 @@ int main() {
                                     nearest_id, &predictions,
                                     ptg, &ref_state);
 
-          // Step 6: Create path : 50 points
+          // Step 6: Create path : 50 points = 1s
           for (uint8_t i = 0; i < pre_path_size; i++)
           {
             next_x_vals.push_back(previous_path_x[i]);
             next_y_vals.push_back(previous_path_y[i]);
           }
 
-          if (pre_path_size <= 20)
+          if (pre_path_size <= 2)
           {
             if (best_traj != NULL)
             {
-              //printf("X gene: %f", ref_x);
               planPath(&next_x_vals, &next_y_vals,
                         ref_vel, pre_path_size,
                         map_waypoints_s, map_waypoints_x, map_waypoints_y,
