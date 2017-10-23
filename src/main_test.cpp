@@ -27,23 +27,23 @@ int main()
 
   Ptg* ptg = new Ptg();
   Graph* graph = Graph::getInstance();
-  struct trajectory best1 = ptg->PTG(&start_state, target_id_1, &delta1, T, &predictions);
-  double cost1 = ptg->calculate_cost(&best1, target_id_1, &delta1, TIME_PLANNING, &predictions);
-  struct trajectory best2 = ptg->PTG(&start_state, target_id_1, &delta2, T, &predictions);
-  double cost2 = ptg->calculate_cost(&best2, target_id_1, &delta2, TIME_PLANNING, &predictions);
-  struct trajectory best3 = ptg->PTG(&start_state, target_id_1, &delta3, T, &predictions);
-  double cost3 = ptg->calculate_cost(&best3, target_id_1, &delta3, TIME_PLANNING, &predictions);
+  struct trajectory* best1 = ptg->PTG(&start_state, target_id_1, &delta1, T, &predictions);
+  double cost1 = ptg->calculate_cost(best1, target_id_1, &delta1, TIME_PLANNING, &predictions);
+  struct trajectory* best2 = ptg->PTG(&start_state, target_id_1, &delta2, T, &predictions);
+  double cost2 = ptg->calculate_cost(best2, target_id_1, &delta2, TIME_PLANNING, &predictions);
+  struct trajectory* best3 = ptg->PTG(&start_state, target_id_1, &delta3, T, &predictions);
+  double cost3 = ptg->calculate_cost(best3, target_id_1, &delta3, TIME_PLANNING, &predictions);
   printf("Cost 1: %f\n", cost1);
   printf("Cost 2: %f\n", cost2);
   printf("Cost 3: %f\n", cost3);
 
 #ifdef VISUAL_DEBUG
-  graph->plot_trajectory(0, &best1, Scalar(0, 255, 0));  
-  graph->plot_trajectory(0, &best2, Scalar(0, 255, 0));  
-  graph->plot_trajectory(0, &best3, Scalar(0, 255, 0));  
-  graph->plot_vehicle(0, best1.T, Scalar(0, 0, 255), &vehicle1);
-  graph->plot_vehicle(0, best3.T, Scalar(0, 0, 255), &vehicle2);
-  graph->plot_vehicle(0, best3.T, Scalar(0, 0, 255), &vehicle3);
+  graph->plot_trajectory(0, best1, Scalar(0, 255, 0));
+  graph->plot_trajectory(0, best2, Scalar(0, 255, 0));
+  graph->plot_trajectory(0, best3, Scalar(0, 255, 0));
+  graph->plot_vehicle(0, best1->T, Scalar(0, 0, 255), &vehicle1);
+  graph->plot_vehicle(0, best2->T, Scalar(0, 0, 255), &vehicle2);
+  graph->plot_vehicle(0, best3->T, Scalar(0, 0, 255), &vehicle3);
   while (true)
   {
     uint8_t k = graph->show_trajectory();
