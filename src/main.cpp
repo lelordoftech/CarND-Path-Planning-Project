@@ -7,6 +7,7 @@
 #include <vector>
 #include "json.hpp"
 #include "spline.h"
+#include <sys/time.h>
 
 #include "helpers.h"
 #include "ptg.h"
@@ -163,7 +164,7 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 /*
  * Create vehicle map in the future from sensor_fusion
  * 
- * @param: ref_s - position s of our Car in the future
+ * @param: ref_s (m) - position s of our Car in the future
  * @param: pre_path_size - size of pre-path, which our Car does not move on
  * @param: sensor_fusion - json information
  * 
@@ -210,7 +211,7 @@ void vehicle_map(std::map<int8_t, Vehicle>* predictions,
  * 
  * @param: predictions - map of id and vehicle
  * @param: ref_lane - lane of our Car in the future
- * @param: ref_s - position s of our Car in the future
+ * @param: ref_s (m) - position s of our Car in the future
  * 
  * @output: nearest_id : id of the nearest vehicle
  */
@@ -257,12 +258,15 @@ int8_t find_nearest_vehicle(std::map<int8_t, Vehicle>* predictions,
  * 
  * @output: best_traj - pointer to the best trajectory
  * @output: ref_lane - lane of our Car in the future
- * @output: is_too_close - determine case need to slow down speed
+ * @output: is_following - flag to know when we must slow down
  */
-int8_t find_best_traj(struct trajectory** best_traj, int8_t ref_lane,
+bool find_best_traj(struct trajectory** best_traj, int8_t* ref_lane,
                     int8_t vehicle_id, std::map<int8_t, Vehicle>* predictions,
                     Ptg* ptg, struct state* ref_state)
 {
+  bool is_following = false;
+  int8_t lane = *ref_lane;
+
   if (vehicle_id == -1)
   {
     // Go straight
@@ -270,7 +274,7 @@ int8_t find_best_traj(struct trajectory** best_traj, int8_t ref_lane,
     // and try to keep follow this virtual vehicle
     double target_s = ref_state->s.m+DIST_PLANNING;
     double target_s_dot = SPEED_LIMIT/2.24;
-    double target_d = (2+ref_lane*4);
+    double target_d = (2+lane*4);
     struct state target(target_s, target_s_dot, 0, target_d, 0, 0);
     *best_traj = ptg->PTG(ref_state, &target, TIME_PLANNING, predictions);
   }
@@ -281,30 +285,28 @@ int8_t find_best_traj(struct trajectory** best_traj, int8_t ref_lane,
     double check_d = vehicle.state_in(0).d.m;
     struct state delta;
 
-    if (check_s > ref_state->s.m+DIST_PLANNING)
+    if (check_s <= ref_state->s.m+DIST_PLANNING &&
+              check_s >= ref_state->s.m+2*VEHICLE_RADIUS)
     {
-      // Following
-      double delta_d = (2+ref_lane*4) - check_d;
-      delta.set(-DIST_PLANNING, 0, 0, delta_d, 0, 0); // planning following DIST_PLANNING in the center
-      *best_traj = ptg->PTG(ref_state, vehicle_id, &delta, TIME_PLANNING, predictions);
-    }
-    else
-    {
+      // In dangerous region
       // Switch lane
       std::map<double, std::map<int8_t, struct trajectory*>> map_cost; // [cost : lane : traj]
 
+      // Check all cases possible
       for (int8_t i = 0; i < 3; i++)
       {
-        if (i != ref_lane)
+        if (i != lane)
         {
           // In other lanes
-          double delta_d = 4*(i-ref_lane) - (2+ref_lane*4-check_d);
+          double delta_d = 4*(i-lane) - (2+lane*4-check_d);
           delta.set(0, 0, 0, delta_d, 0, 0); // switch lane to center
         }
         else
         {
           // In our lane
-          // TODO
+          // If we can not switch lane, try to following and wait the chance to switch
+          double delta_d = (2+lane*4) - check_d;
+          delta.set(-DIST_PLANNING/2.0, 0, 0, delta_d, 0, 0); // planning following DIST_PLANNING/2.0 in the center
         }
         struct trajectory* best = ptg->PTG(ref_state, vehicle_id, &delta, TIME_PLANNING, predictions);
         if (best != NULL)
@@ -317,24 +319,48 @@ int8_t find_best_traj(struct trajectory** best_traj, int8_t ref_lane,
       // Find best choice
       if (map_cost.size() > 0)
       {
-        ref_lane = map_cost.begin()->second.begin()->first;
+        lane = map_cost.begin()->second.begin()->first;
         *best_traj = map_cost.begin()->second.begin()->second;
+        if (lane == *ref_lane)
+        {
+          // Choose case following
+          is_following = true;
+        }
+        else
+        {
+          // Choose case switch lane
+          *ref_lane = lane;
+        }
       }
+    }
+    else
+    {
+      // check_s > ref_state->s.m+DIST_PLANNING     -> In safe region
+      // check_s < ref_state->s.m+2*VEHICLE_RADIUS  -> Case vehicle in behide us
+      // Go straight
+      // We create a virtual vehicle with same state with us,
+      // and try to keep follow this virtual vehicle
+      double target_s = ref_state->s.m+DIST_PLANNING;
+      double target_s_dot = SPEED_LIMIT/2.24;
+      double target_d = (2+lane*4);
+      struct state target(target_s, target_s_dot, 0, target_d, 0, 0);
+      *best_traj = ptg->PTG(ref_state, &target, TIME_PLANNING, predictions);
     }
   }
 
-  return ref_lane;
+  return is_following;
 }
 
 /*
  * Create spline in XY Car cordinator
+ * base on an constant distance in the future
  * 
- * @param: pre_x
- * @param: pre_y
- * @param: ref_x
- * @param: ref_y
- * @param: ref_yaw
- * @param: ref_s
+ * @param: pre_x (m)
+ * @param: pre_y (m)
+ * @param: ref_x (m)
+ * @param: ref_y (m)
+ * @param: ref_s (m)
+ * @param: ref_yaw (rad)
  * @param: ref_lane
  * @param: map_waypoints_s
  * @param: map_waypoints_x
@@ -342,13 +368,14 @@ int8_t find_best_traj(struct trajectory** best_traj, int8_t ref_lane,
  * 
  * @output: s - spline
  */
-tk::spline createSpline(double pre_x, double pre_y,
-                        double ref_x, double ref_y, double ref_yaw,
-                        double ref_s, int8_t ref_lane,
-                        vector<double> map_waypoints_s,
-                        vector<double> map_waypoints_x,
-                        vector<double> map_waypoints_y)
+tk::spline* createSpline(double pre_x, double pre_y,
+                          double ref_x, double ref_y, double ref_s,
+                          double ref_yaw, int8_t ref_lane,
+                          vector<double> map_waypoints_s,
+                          vector<double> map_waypoints_x,
+                          vector<double> map_waypoints_y)
 {
+  printf("[MAIN][WARNING] Create spline base on an constant distance in the future\n");
   vector<double> pts_x;
   vector<double> pts_y;
 
@@ -357,8 +384,8 @@ tk::spline createSpline(double pre_x, double pre_y,
   // pre_x : ref_x : x1 : x2 : x3
   // pre_y : ref_y : y1 : y2 : y3
   pts_x.push_back(pre_x);
-  pts_x.push_back(ref_x);
   pts_y.push_back(pre_y);
+  pts_x.push_back(ref_x);
   pts_y.push_back(ref_y);
 
   for (uint8_t i = 1; i < 4; i++)
@@ -381,15 +408,122 @@ tk::spline createSpline(double pre_x, double pre_y,
     pts_y[i] = shift_x*sin(-ref_yaw) + shift_y*cos(-ref_yaw);
   }
 
+  // Remove wrong data before apply spline
+  for (uint8_t i = 1; i < pts_x.size();)
+  {
+    if (pts_x[i] > pts_x[i-1])
+    {
+      i++;
+    }
+    else
+    {
+      pts_x.erase(pts_x.begin()+i);
+      pts_y.erase(pts_y.begin()+i);
+    }
+  }
+
   // Apply spline
-  tk::spline s;
+  tk::spline* s = NULL;
   if (pts_x.size() > 2)
   {
-    s.set_points(pts_x, pts_y);
+    s = new tk::spline();
+    s->set_points(pts_x, pts_y);
   }
   else
   {
-    printf("Cannot generate the next 3 point for spline generation\n");
+    printf("[MAIN][ERROR] Cannot generate the next 3 point for spline generation\n");
+  }
+
+  return s;
+}
+
+/*
+ * Create spline in XY Car cordinator
+ * base on best trajectory
+ * 
+ * @param: pre_x (m)
+ * @param: pre_y (m)
+ * @param: ref_x (m)
+ * @param: ref_y (m)
+ * @param: ref_yaw (rad)
+ * @param: map_waypoints_s
+ * @param: map_waypoints_x
+ * @param: map_waypoints_y
+ * @param: traj
+ * 
+ * @output: s - spline
+ */
+tk::spline* createSpline(double pre_x, double pre_y,
+                          double ref_x, double ref_y, double ref_yaw,
+                          vector<double> map_waypoints_s,
+                          vector<double> map_waypoints_x,
+                          vector<double> map_waypoints_y,
+                          struct trajectory* traj)
+{
+  vector<double> pts_x;
+  vector<double> pts_y;
+
+  // Make point for spline calculation
+  // 5 points
+  // pre_x : ref_x : x1 : x2 : x3
+  // pre_y : ref_y : y1 : y2 : y3
+  pts_x.push_back(pre_x);
+  pts_y.push_back(pre_y);
+  pts_x.push_back(ref_x);
+  pts_y.push_back(ref_y);
+
+  double time_step = traj->T/2.0;
+  for (uint8_t i = 1; i < 3; i++)
+  {
+    double next_s = calculate(traj->s_coeffs, i*time_step);
+    double next_d = calculate(traj->d_coeffs, i*time_step);
+    vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+    pts_x.push_back(next_xy[0]);
+    pts_y.push_back(next_xy[1]);
+  }
+
+  // Add more points
+  double next_s = calculate(traj->s_coeffs, traj->T) + DIST_PLANNING;
+  double next_d = calculate(traj->d_coeffs, traj->T);
+  vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+  pts_x.push_back(next_xy[0]);
+  pts_y.push_back(next_xy[1]);
+
+  // Transformation to car coordinates
+  for (uint8_t i = 0; i < pts_x.size(); i++)
+  {
+    // translation
+    double shift_x = pts_x[i] - ref_x;
+    double shift_y = pts_y[i] - ref_y;
+    // rotation clockwise psi
+    pts_x[i] = shift_x*cos(-ref_yaw) - shift_y*sin(-ref_yaw);
+    pts_y[i] = shift_x*sin(-ref_yaw) + shift_y*cos(-ref_yaw);
+  }
+
+  // Remove wrong data before apply spline
+  for (uint8_t i = 1; i < pts_x.size();)
+  {
+    if (pts_x[i] > pts_x[i-1])
+    {
+      i++;
+    }
+    else
+    {
+      pts_x.erase(pts_x.begin()+i);
+      pts_y.erase(pts_y.begin()+i);
+    }
+  }
+
+  // Apply spline
+  tk::spline* s = NULL;
+  if (pts_x.size() > 2)
+  {
+    s = new tk::spline();
+    s->set_points(pts_x, pts_y);
+  }
+  else
+  {
+    printf("[MAIN][ERROR] Cannot generate the next 3 point for spline generation\n");
   }
 
   return s;
@@ -398,11 +532,11 @@ tk::spline createSpline(double pre_x, double pre_y,
 /*
  * Create path for moving
  * 
- * @param: ref_s
- * @param: ref_x
- * @param: ref_y
- * @param: ref_vel
- * @param: ref_yaw
+ * @param: ref_x (m)
+ * @param: ref_y (m)
+ * @param: ref_s (m)
+ * @param: ref_yaw (rad)
+ * @param: ref_vel (m/s)
  * @param: pre_path_size
  * @param: s
  * 
@@ -410,24 +544,24 @@ tk::spline createSpline(double pre_x, double pre_y,
  * @output: next_y_vals
  */
 void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
-              double ref_s, double ref_x, double ref_y, double ref_vel, double ref_yaw,
-              uint8_t pre_path_size, tk::spline s)
+              double ref_x, double ref_y, double ref_s, double ref_yaw,
+              double ref_vel, double pre_path_size, tk::spline s)
 {
-  double ref_vel_step = 1.0/50.0*ref_vel/2.24;
-
-  double target_x = DIST_PLANNING;
+  double target_x = DIST_PLANNING/2.0;
   double target_y = s(target_x);
   double target_dist = sqrt(target_x*target_x + target_y*target_y);
+  double ref_vel_step = ref_vel*0.02;
+  double N = target_dist/ref_vel_step; // split target_dist to N pieces
+  double ref_x_step = target_x/N;
+  double x_ref = 0.0;
+  double y_ref = 0.0;
 
-  double N = (target_dist/ref_vel_step);
-  double x_point_step = target_x/N;
-
-  // Transformation to global coordinates
   for (uint8_t i = 1; i <= 50-pre_path_size; i++)
   {
-    double x_ref = i*x_point_step;
-    double y_ref = s(x_ref);
+    x_ref = i*ref_x_step;
+    y_ref = s(x_ref);
 
+    // Transformation to global coordinates
     // rotation counter-clockwise psi
     double x_point = x_ref*cos(ref_yaw) - y_ref*sin(ref_yaw);
     double y_point = x_ref*sin(ref_yaw) + y_ref*cos(ref_yaw);
@@ -441,51 +575,8 @@ void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
 }
 
 /*
- * Create path for moving
+ * MAIN
  */
-void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
-              double ref_vel, uint8_t pre_path_size,
-              vector<double> map_waypoints_s, vector<double> map_waypoints_x, vector<double> map_waypoints_y, 
-              struct trajectory* traj)
-{
-  double time_step = 0.02;
-  uint8_t step = (uint8_t)(traj->T/time_step);
-  if (step > 50-pre_path_size)
-  {
-    step = 50-pre_path_size;
-  }
-  printf("step %d\n", step);
-  for (uint8_t i = 0; i < step; i++)
-  {
-    double next_s = calculate(traj->s_coeffs, i*time_step);
-    double next_d = calculate(traj->d_coeffs, i*time_step);
-
-    vector<double> next_xy = getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-
-    // Wrong convert case
-    // Predict base on previous values
-    /*uint8_t size = next_x_vals->size();
-    if (size >= 2)
-    {
-      double curr_vel = distance(next_xy[0], next_xy[1], (*next_x_vals)[size-1], (*next_y_vals)[size-1])/0.02;
-      if (curr_vel > ref_vel/2.24)
-      {
-        next_xy[0] = 2*(*next_x_vals)[size-1]-(*next_x_vals)[size-2];
-        next_xy[1] = 2*(*next_y_vals)[size-1]-(*next_y_vals)[size-2];
-      }
-      else
-      {
-        // Do nothing
-      }
-    }*/
-
-    next_x_vals->push_back(next_xy[0]);
-    next_y_vals->push_back(next_xy[1]);
-    printf("%f %f %f %f\n", next_d, next_s, next_xy[0], next_xy[1]);
-  }
-  printf("\n");
-}
-
 int main() {
   uWS::Hub h;
 
@@ -575,10 +666,11 @@ int main() {
 
           // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
           // START IMPLEMENTATION
+          struct timeval t_start, t_end;
+          gettimeofday(&t_start, NULL);
 #ifdef VISUAL_DEBUG
           graph->initGraph();
 #endif // VISUAL_DEBUG
-          // TODO: Should go straight when start
 
           // Step 1: Update state in the future
           // We will make planing path for the future, not for current
@@ -638,6 +730,8 @@ int main() {
 
           // Step 4: Find the best trajectory, best ref_lane
           struct state ref_state(ref_s, ref_speed, 0, ref_d, 0, 0);
+
+          // Try to come back our lanes 0,1,2 if we out of lanes
           if (ref_d < 0)
           {
             ref_lane = 0;
@@ -647,42 +741,74 @@ int main() {
             ref_lane = 2;
           }
 
-          ref_lane = find_best_traj(&best_traj, ref_lane,
-                                    nearest_id, &predictions,
-                                    ptg, &ref_state);
+          bool is_following = find_best_traj(&best_traj, &ref_lane,
+                                              nearest_id, &predictions,
+                                              ptg, &ref_state);
 
-          // Step 6: Create path : 50 points = 1s
+          // Step 5: Create path : 50 points = 1s
           for (uint8_t i = 0; i < pre_path_size; i++)
           {
             next_x_vals.push_back(previous_path_x[i]);
             next_y_vals.push_back(previous_path_y[i]);
           }
 
-          if (pre_path_size <= 2)
+          // Create spline
+          tk::spline* s = NULL;
+          if (best_traj != NULL)
           {
-            if (best_traj != NULL)
-            {
-              planPath(&next_x_vals, &next_y_vals,
-                        ref_vel, pre_path_size,
-                        map_waypoints_s, map_waypoints_x, map_waypoints_y,
-                        best_traj);
-              /*/ Create spline
-              tk::spline s = createSpline(pre_x, pre_y,
-                                          ref_x, ref_y, ref_yaw,
-                                          ref_s, ref_lane,
-                                          map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            s = createSpline(pre_x, pre_y,
+                              ref_x, ref_y, ref_yaw,
+                              map_waypoints_s,
+                              map_waypoints_x,
+                              map_waypoints_y,
+                              best_traj);
+          }
+          else
+          {
+            printf("[MAIN][ERROR] Can not find traj\n");
+          }
 
-              // Make planning path
-              planPath(&next_x_vals, &next_y_vals,
-                        ref_s, ref_x, ref_y, ref_vel, ref_yaw,
-                        pre_path_size, s);
-              */
-            }
-            else
+          if (s == NULL)
+          {
+            s = createSpline(pre_x, pre_y,
+                              ref_x, ref_y, ref_s, ref_yaw,
+                              ref_lane,
+                              map_waypoints_s,
+                              map_waypoints_x,
+                              map_waypoints_y);
+          }
+
+          // Update velocity
+          double target_vel = SPEED_LIMIT/2.24;
+          double target_accel = MAX_ACCEL/2.0;
+          if (nearest_id > -1 && is_following == true)
+          {
+            // Case following
+            Vehicle vehicle = predictions.at(nearest_id);
+            target_vel = vehicle.state_in(0).s.m_dot;
+          }
+
+          if (ref_vel < target_vel)
+          {
+            ref_vel += target_accel*0.02;
+            if (ref_vel > target_vel)
             {
-              printf("[ERROR] Can not find traj\n");
+              ref_vel = target_vel;
             }
           }
+          else if (ref_vel > target_vel)
+          {
+            ref_vel -= target_accel*0.02;
+            if (ref_vel < target_vel)
+            {
+              ref_vel = target_vel;
+            }
+          }
+
+          // Make planning path
+          planPath(&next_x_vals, &next_y_vals,
+                    ref_x, ref_y, ref_s, ref_yaw,
+                    ref_vel, pre_path_size, *s);
 
 #ifdef VISUAL_DEBUG
           // Plot our trajectory
@@ -702,6 +828,16 @@ int main() {
             delete best_traj;
             best_traj = NULL;
             //return; // stop to debug
+
+            gettimeofday(&t_end, NULL);
+            uint16_t ms = (t_end.tv_sec-t_start.tv_sec) * 1000 +
+                          (t_end.tv_usec-t_start.tv_usec) / 1000;
+            printf("[MAIN][INFO] Time to process: %d\n", ms);
+          }
+          if (s != NULL)
+          {
+            delete s;
+            s = NULL;
           }
 #endif // VISUAL_DEBUG
           // END IMPLEMENTATION
