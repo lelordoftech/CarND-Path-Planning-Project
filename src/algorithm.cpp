@@ -334,7 +334,7 @@ bool find_best_traj(struct trajectory** best_traj, int8_t* ref_lane,
  * 
  * @output: s - spline
  */
-char* createSpline(double pre_x, double pre_y,
+void* createSpline(double pre_x, double pre_y,
                           double ref_x, double ref_y, double ref_s,
                           double ref_yaw, int8_t ref_lane,
                           vector<double> map_waypoints_s,
@@ -400,7 +400,7 @@ char* createSpline(double pre_x, double pre_y,
     printf("[MAIN][ERROR] Cannot generate the next 3 point for spline generation\n");
   }
 
-  return (char*)s;
+  return (void*)s;
 }
 
 /*
@@ -419,7 +419,7 @@ char* createSpline(double pre_x, double pre_y,
  * 
  * @output: s - spline
  */
-char* createSpline(double pre_x, double pre_y,
+void* createSpline(double pre_x, double pre_y,
                           double ref_x, double ref_y, double ref_yaw,
                           vector<double> map_waypoints_s,
                           vector<double> map_waypoints_x,
@@ -492,7 +492,7 @@ char* createSpline(double pre_x, double pre_y,
     printf("[MAIN][ERROR] Cannot generate the next 3 point for spline generation\n");
   }
 
-  return (char*)s;
+  return (void*)s;
 }
 
 /*
@@ -511,7 +511,7 @@ char* createSpline(double pre_x, double pre_y,
  */
 void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
               double ref_x, double ref_y, double ref_s, double ref_yaw,
-              double ref_vel, double pre_path_size, char* spline)
+              double ref_vel, double pre_path_size, void* spline)
 {
   tk::spline s = *(tk::spline*)spline;
   double target_x = DIST_PLANNING/2.0;

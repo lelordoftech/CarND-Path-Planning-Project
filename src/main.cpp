@@ -267,7 +267,7 @@ int main() {
           // Make planning path
           planPath(&next_x_vals, &next_y_vals,
                     ref_x, ref_y, ref_s, ref_yaw,
-                    ref_vel, pre_path_size, (char*)s);
+                    ref_vel, pre_path_size, (void*)s);
 
 #ifdef VISUAL_DEBUG
           // Plot our trajectory

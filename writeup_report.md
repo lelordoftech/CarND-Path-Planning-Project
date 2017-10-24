@@ -11,9 +11,22 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 [image1]: ./output_images/compilation.png
 [image2]: ./output_images/show_trajectory.png
-[image3]: ./output_images/valid_trajectory.png
-[image4]: ./output_images/invalid_trajectory.png
-[image5]: ./output_images/planPath.png
+[image3]: ./output_images/behavioral1.png
+[image4]: ./output_images/behavioral2.png
+[image5]: ./output_images/time_diff_cost.png
+[image6]: ./output_images/s_diff_cost.png
+[image7]: ./output_images/d_diff_cost.png
+[image8]: ./output_images/efficiency_cost.png
+[image9]: ./output_images/max_jerk_cost.png
+[image10]: ./output_images/total_jerk_cost.png
+[image11]: ./output_images/collision_cost.png
+[image12]: ./output_images/buffer_cost.png
+[image13]: ./output_images/max_accel_cost.png
+[image14]: ./output_images/total_accel_cost.png
+[image15]: ./output_images/valid_trajectory.png
+[image16]: ./output_images/invalid_trajectory.png
+[image17]: ./output_images/planPath.png
+
 [video1]: ./output_videos/Path_Planning_Final.mp4
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/1020/view) Points
@@ -92,6 +105,9 @@ I check the distance to the nearest vehicle in the front of us:
 * Between 3m and 44m: find the best trajectory to switch lane or following
 * Other case: just try to keep lane with max velocity
 
+![alt text][image3]
+![alt text][image4]
+
 The main function is `ptg()` in file `ptg.cpp` line `3-153`
 
 With each target I create 8 goals near the taget with delta t is 0.2 second.
@@ -102,16 +118,45 @@ Finally, I choose the PTG have minimize cost.
 
 **Cost functions**:
 
-* time_diff_cost
-* s_diff_cost
-* d_diff_cost
-* efficiency_cost
-* max_jerk_cost
-* total_jerk_cost
-* collision_cost
-* buffer_cost
-* max_accel_cost
-* total_accel_cost
+* time_diff_cost: Penalizes trajectories that span a duration which is longer or shorter than the duration requested.
+
+![alt text][image5]
+
+* s_diff_cost: Penalizes trajectories whose s coordinate (and derivatives) differ from the goal.
+
+![alt text][image6]
+
+* d_diff_cost: Penalizes trajectories whose d coordinate (and derivatives) differ from the goal.
+
+![alt text][image7]
+
+* efficiency_cost: Rewards high average speeds.
+
+![alt text][image8]
+
+* max_jerk_cost: Penalizes max jerk.
+
+![alt text][image9]
+
+* total_jerk_cost: Penalizes total jerk.
+
+![alt text][image10]
+
+* collision_cost: Binary cost function which penalizes collisions.
+
+![alt text][image11]
+
+* buffer_cost: Penalizes getting close to other vehicles.
+
+![alt text][image12]
+
+* max_accel_cost: Penalizes max accel.
+
+![alt text][image13]
+
+* total_accel_cost: Penalizes total accel.
+
+![alt text][image14]
 
 ##### 1.5 Create path
 
@@ -134,7 +179,7 @@ In case I get a valid trajectory as above step, I take 2 points in this trajecto
 
 It should make the spline smoothy.
 
-![alt text][image3]
+![alt text][image15]
 
 In case I can not get a valid trajectory, I take 3 points in the future:
 
@@ -142,7 +187,7 @@ In case I can not get a valid trajectory, I take 3 points in the future:
 * 88 m
 * 132 m
 
-![alt text][image4]
+![alt text][image16]
 
 Always transform the coordinates before create spline:
 
@@ -197,7 +242,7 @@ File `main.cpp` line `808-811` and `532-575`
 
 I create 50 points for moving. Some of them come from the previous data and I will create the rest part.
 
-![alt text][image5]
+![alt text][image17]
 
 To make the car run with a constant velocity, I split the distance line (green line) into N part.
 

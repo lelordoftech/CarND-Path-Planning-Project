@@ -60,24 +60,17 @@ double s_diff_cost(struct trajectory* traj, int8_t target_vehicle, struct state*
 double d_diff_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  double* d_coeffs = traj->d_coeffs;
+  double* d = traj->d_coeffs;
   double t = traj->T;
-  double d_dot_coeffs[5];
-  differentiate(d_dot_coeffs, d_coeffs, 5);
-  double d_ddot_coeffs[4];
-  differentiate(d_ddot_coeffs, d_dot_coeffs, 4);
-  double d = calculate(d_coeffs, t, 6);
-  double d_dot = calculate(d_dot_coeffs, t, 5);
-  double d_ddot = calculate(d_ddot_coeffs, t, 4);
-  double D[3] = {d, d_dot, d_ddot};
-  
   struct state target;
   if (target_vehicle > -1)
-  {  
+  {
     target = (*predictions)[target_vehicle].state_in(t);
   }
   target.add(delta);
   double* d_targ = (double*)&target.d;
+  double D[3];
+  get_f_and_N_derivatives(D, d, 2, t);
 
   for (uint8_t i = 0; i < 3; i++)
   {
@@ -192,7 +185,6 @@ double total_accel_cost(struct trajectory* traj, int8_t target_vehicle, struct s
 {
   double cost = 0.0;
   double* s = traj->s_coeffs;
-  double* d = traj->d_coeffs;
   double t = traj->T;
   double s_dot[5];
   differentiate(s_dot, s, 5);
@@ -224,7 +216,6 @@ double max_accel_cost(struct trajectory* traj, int8_t target_vehicle, struct sta
 {
   double cost = 0.0;
   double* s = traj->s_coeffs;
-  double* d = traj->d_coeffs;
   double t = traj->T;
   double s_dot[5];
   differentiate(s_dot, s, 5);
@@ -259,7 +250,6 @@ double max_jerk_cost(struct trajectory* traj, int8_t target_vehicle, struct stat
 {
   double cost = 0.0;
   double* s = traj->s_coeffs;
-  double* d = traj->d_coeffs;
   double t = traj->T;
   double s_dot[5];
   differentiate(s_dot, s, 5);
@@ -296,7 +286,6 @@ double total_jerk_cost(struct trajectory* traj, int8_t target_vehicle, struct st
 {
   double cost = 0.0;
   double* s = traj->s_coeffs;
-  double* d = traj->d_coeffs;
   double t = traj->T;
   double s_dot[5];
   differentiate(s_dot, s, 5);

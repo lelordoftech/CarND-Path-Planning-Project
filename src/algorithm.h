@@ -28,13 +28,13 @@ int8_t find_nearest_vehicle(std::map<int8_t, Vehicle>* predictions,
 bool find_best_traj(struct trajectory** best_traj, int8_t* ref_lane,
                     int8_t vehicle_id, std::map<int8_t, Vehicle>* predictions,
                     Ptg* ptg, struct state* ref_state);
-char* createSpline(double pre_x, double pre_y,
+void* createSpline(double pre_x, double pre_y,
                           double ref_x, double ref_y, double ref_s,
                           double ref_yaw, int8_t ref_lane,
                           vector<double> map_waypoints_s,
                           vector<double> map_waypoints_x,
                           vector<double> map_waypoints_y);
-char* createSpline(double pre_x, double pre_y,
+void* createSpline(double pre_x, double pre_y,
                           double ref_x, double ref_y, double ref_yaw,
                           vector<double> map_waypoints_s,
                           vector<double> map_waypoints_x,
@@ -42,5 +42,5 @@ char* createSpline(double pre_x, double pre_y,
                           struct trajectory* traj);
 void planPath(vector<double>* next_x_vals, vector<double>* next_y_vals,
               double ref_x, double ref_y, double ref_s, double ref_yaw,
-              double ref_vel, double pre_path_size, char* spline);
+              double ref_vel, double pre_path_size, void* spline);
 #endif // ALGORITHM_H
