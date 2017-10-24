@@ -26,7 +26,11 @@ The goals / steps of this project are the following:
 [image15]: ./output_images/valid_trajectory.png
 [image16]: ./output_images/invalid_trajectory.png
 [image17]: ./output_images/planPath.png
-
+[image18]: ./output_images/scenario1.png
+[image19]: ./output_images/scenario2.png
+[image20]: ./output_images/scenario3.png
+[image21]: ./output_images/scenario4.png
+[image22]: ./output_images/scenario5.png
 [video1]: ./output_videos/Path_Planning_Final.mp4
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/1020/view) Points
@@ -67,7 +71,7 @@ I choosed planning with:
 * max velocity: 49.5 mph ~ 22 m/s
 * max accelerator: 5 m/s2 < 10 m/s2
 
-Before implement path generation with Polynomial Trajectory Generation (PTG), I tested with `main_test.cpp`. I also create a VISUAL_DEBUG mode to show trajectory generation realtime with openCV for debugging easily. And the result as below:
+Before implement path generation with Polynomial Trajectory Generation (PTG), I tested with `test_ptg.cpp`. I also create a VISUAL_DEBUG mode to show trajectory generation realtime with openCV for debugging easily. And the result as below:
 
 ![alt text][image2]
 
@@ -77,13 +81,13 @@ I generated paths by 6 steps as below. In each step, I try to create a function 
 
 ##### 1.1 Update state in the future
 
-File `main.cpp` line `675-713`
+File `main.cpp` line `134-172`
 
 I plan with the future state because the calculation will take a lot of time, and we always want to know our future, not our past.
 
 ##### 1.2 Make vehicle map
 
-File `main.cpp` line `715-717` and `164-207`
+File `main.cpp` line `174-176` and file `algorithm.cpp` line `130-173`
 
 To drive our car safety, I will check others car in 3 lanes with dangerous range is from -6 meters to +88 meters compare with our position.
 
@@ -91,13 +95,13 @@ The car is presented by a circle with radius 1.5m.
 
 ##### 1.3 Find the nearest vehicle in the front of us
 
-File `main.cpp` line `727-729` and `209-248`
+File `main.cpp` line `186-188` and file `algorithm.cpp` line `175-214`
 
 To decide how to drive, I check the nearest vehicle in the front of us in the same lane.
 
 ##### 1.4 Find the best trajectory, best ref_lane
 
-File `main.cpp` line `731-746` and `250-352`
+File `main.cpp` line `190-205` and file `algorithm.cpp` line `216-318`
 
 This is planning's heart.
 
@@ -117,6 +121,8 @@ After generate all goals, I create Jerk Minimizing Trajectory (JMT) for each goa
 Finally, I choose the PTG have minimize cost.
 
 **Cost functions**:
+
+File `cost_functions.cpp`
 
 * time_diff_cost: Penalizes trajectories that span a duration which is longer or shorter than the duration requested.
 
@@ -160,7 +166,7 @@ Finally, I choose the PTG have minimize cost.
 
 ##### 1.5 Create path
 
-File `main.cpp` line `748-811` and `354-575`
+File `main.cpp` line `207-270` and file `algorithm.cpp` line `320-542`
 
 I try to create and keep a planning path with 50 points, alway use previous data.
 
@@ -168,7 +174,7 @@ It mean that my path will always be a continuous path.
 
 ###### 1.5.1 Create spline
 
-File `main.cpp` line `755-779`
+File `main.cpp` line `214-238`
 
 Firstly, I add 2 points:
 
@@ -179,6 +185,8 @@ In case I get a valid trajectory as above step, I take 2 points in this trajecto
 
 It should make the spline smoothy.
 
+File `algorithm.cpp` line `406-496`
+
 ![alt text][image15]
 
 In case I can not get a valid trajectory, I take 3 points in the future:
@@ -186,6 +194,8 @@ In case I can not get a valid trajectory, I take 3 points in the future:
 * 44 m
 * 88 m
 * 132 m
+
+File `algorithm.cpp` line `320-404`
 
 ![alt text][image16]
 
@@ -224,7 +234,7 @@ I have a implementation to fix crash spline in case all x value do not be sorted
 
 ###### 1.5.2 Update velocity
 
-File `main.cpp` line `781-806`
+File `main.cpp` line `240-265`
 
 Start speed value is 0 mph.
 
@@ -238,7 +248,7 @@ Speed increase/decrease with step value is 0.224 mph/0.02s (acceleration = 5m/s2
 
 ###### 1.5.3 Create planning path base on above spline
 
-File `main.cpp` line `808-811` and `532-575`
+File `main.cpp` line `267-270` and file `algorithm.cpp` line `498-542`
 
 I create 50 points for moving. Some of them come from the previous data and I will create the rest part.
 
@@ -255,6 +265,8 @@ After that, I predict N points x and calculate N points y: `y = s(x)`.
 
 When the target point near the start point, the distance line (green line) will approximate to the actual line (yellow line). So the actual velocity will approximate to the predict velocity.
 
+But if it is too closed, we can miss some process cycles and maybe we lost controlling.
+
 In here I choose the target distance is 22 m.
 
 Always transform the coordinates before sending to simulator:
@@ -268,6 +280,34 @@ Always transform the coordinates before sending to simulator:
     x_point += ref_x;
     y_point += ref_y;
 ```
+
+### Regression Testing
+
+Not only `test_ptg.cpp`, I created `test_main.cpp` to test some scenarios before testing with the simulator.
+
+I took too much time for testing and debugging with console log and the simulator. I have too much stress also. This implementation save me many time. So regression testing tool is a great idea. I thing it's not a perfect tool, but it's very helpful for me.
+
+Some scenarios:
+
+* Scenario 1: Do not have vehicle in the dangerous range
+
+![alt text][image18]
+
+* Scenario 2: Do not have vehicle in the dangerous range
+
+![alt text][image19]
+
+* Scenario 3: Have vehicle in the dangerous range
+
+![alt text][image20]
+
+* Scenario 4: Have vehicle in the dangerous range and very near us
+
+![alt text][image21]
+
+* Scenario 5: The vehicle behide us is driving faster than us
+
+![alt text][image22]
 
 ---
 
@@ -286,12 +326,17 @@ Here I'll talk about the approach I took, what techniques I used, what worked an
 
 ##### Techniques:
 
-* .
+* Jerk Minimizing Trajectory.
+* Polynomial Trajectory Generation.
+* Spline optimization.
+* Frenet-Based Algorithm for Trajectory Prediction
 
 ##### Fail cases:
 
-* .
+* Vehicle behide our car run too fast and cannot brake to avoid collision with us.
+* Vehicle next to our car change lane and hit us.
 
 ##### Improve:
 
-* .
+* Optimize cost function to find the better trajectory for driving.
+* Optimize source code to minimize the processing time.
