@@ -11,8 +11,10 @@ set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 set(sources src/helpers.cpp
             src/cost_functions.cpp
             src/ptg.cpp
+            src/algorithm.cpp
             src/main.cpp)
-            #src/main_test.cpp)
+            #src/test_ptg.cpp)
+            #src/test_main.cpp)
 
 find_package(PythonLibs 2.7)
 find_package(OpenCV REQUIRED)

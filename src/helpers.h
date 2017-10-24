@@ -26,6 +26,7 @@ using namespace cv;
 #define SCALE_HEIGHT              5
 #define GRAPH_WIDTH               16*SCALE_WIDTH // 16m, scale 20px
 #define GRAPH_HEIGHT              (2*DIST_PLANNING+12+4*VEHICLE_RADIUS)*SCALE_HEIGHT // 88m+12m+6m scale 5px
+#define PLOT_IMAGE_PATH           "../output_images/show_trajectory.png"
 #endif
 
 const double SIGMA_S[3] = {10.0, 4.0, 2.0}; // s, s_dot, s_double_dot
@@ -143,7 +144,7 @@ public:
   void plot_trajectory(double car_s, struct trajectory* traj, Scalar color = Scalar(255, 0, 0), bool isShow = false);
   void plot_vehicle(double car_s, double T, Scalar color = Scalar(0, 255, 0), Vehicle* vehicle = NULL, bool isShow = false);
   void plot_vehicle(double car_s, std::vector<double>* X, std::vector<double>* Y, Scalar color, bool isShow = false);
-  uint8_t show_trajectory();
+  uint8_t show_trajectory(const char* img_name = PLOT_IMAGE_PATH);
 private:
   Mat g_image;
   static Graph* g_instance;

@@ -259,10 +259,9 @@ void Graph::plot_vehicle(double car_s, std::vector<double>* X, std::vector<doubl
 /*
  * Show trajectory graph
  */
-uint8_t Graph::show_trajectory()
+uint8_t Graph::show_trajectory(const char* img_name)
 {
   // Save image file
-  char img_name[] = "../output_images/show_trajectory.png";
   imwrite(img_name, g_image);
   // Show
   imshow("Path Planning", g_image);
