@@ -117,8 +117,8 @@ File `main.cpp` line `190-205` and file `algorithm.cpp` line `216-376`
 This is planning's heart.
 
 I check the distance to the nearest vehicle in the front of us:
-* Between +22m and +44m: find the best trajectory to switch lane or following. Just try to switch to the first next lane, not the second next lane. It's too far and have risk collision. Before switch lane, I check this next lane is safety or not. Safety is when the region -4m to +44m is free without any vehicle.
-* Between 0m and +22m: just slow down speed and following
+* Between +8m and +44m: find the best trajectory to switch lane or following. Just try to switch to the first next lane, not the second next lane. It's too far and have risk collision. Before switch lane, I check this next lane is safety or not. Safety is when the region -4m to +44m is free without any vehicle.
+* Between 0m and +8m: just slow down speed and following
 * Other case: just try to keep lane with max velocity
 
 ![alt text][image3]

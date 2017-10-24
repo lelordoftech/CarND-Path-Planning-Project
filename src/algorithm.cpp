@@ -253,7 +253,7 @@ bool find_best_traj(struct trajectory** best_traj, int8_t* ref_lane,
     struct state delta;
 
     if (check_s <= ref_state->s.m+DIST_PLANNING &&
-        check_s >= ref_state->s.m+DIST_PLANNING/2.0)
+        check_s >= ref_state->s.m+4*VEHICLE_RADIUS)
     {
       // In dangerous region
       // Switch lane
@@ -349,7 +349,7 @@ bool find_best_traj(struct trajectory** best_traj, int8_t* ref_lane,
         }
       }
     }
-    else if (check_s < ref_state->s.m+DIST_PLANNING/2.0 &&
+    else if (check_s < 4*VEHICLE_RADIUS &&
               check_s > ref_state->s.m)
     {
       is_following = true; // Slow down speed
