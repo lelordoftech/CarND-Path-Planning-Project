@@ -264,7 +264,7 @@ bool find_best_traj(struct trajectory** best_traj, int8_t* ref_lane,
         if (i != lane)
         {
           // In other lanes
-          double delta_d = 4*(i-lane) - (2+lane*4-check_d);
+          double delta_d = (2+i*4) - check_d;
           delta.set(0, 0, 0, delta_d, 0, 0); // switch lane to center
         }
         else
@@ -285,7 +285,7 @@ bool find_best_traj(struct trajectory** best_traj, int8_t* ref_lane,
       // Find best choice
       if (map_cost.size() > 0)
       {
-        lane = map_cost.begin()->second.begin()->first;
+        lane = map_cost.begin()->second.begin()->first; // Update lane value
         *best_traj = map_cost.begin()->second.begin()->second;
         if (lane == *ref_lane)
         {
