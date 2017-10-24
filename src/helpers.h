@@ -16,7 +16,7 @@ using namespace cv;
 #define EXPECTED_JERK_IN_ONE_SEC  2.0 // m/s/s
 #define EXPECTED_ACC_IN_ONE_SEC   1.0 // m/s
 #define SPEED_LIMIT               49.5 // mph ~ 22m/s
-#define VEHICLE_RADIUS            1.5 // m: model vehicle as circle to simplify collision detection
+#define VEHICLE_RADIUS            2.0 // m: model vehicle as circle to simplify collision detection
 // max speed is 49.5 mph = 49.5/2.24=22m/s
 #define TIME_PLANNING             2.0 // s
 #define DIST_PLANNING             49.5/2.24*TIME_PLANNING

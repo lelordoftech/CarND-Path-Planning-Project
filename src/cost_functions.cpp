@@ -13,7 +13,7 @@ double time_diff_cost(struct trajectory* traj, int8_t target_vehicle, struct sta
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -45,10 +45,11 @@ double s_diff_cost(struct trajectory* traj, int8_t target_vehicle, struct state*
     double diff = double(abs(actual-expected));
     cost += logistic(diff/sigma);
   }
+  cost /= 3.0;
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -80,10 +81,11 @@ double d_diff_cost(struct trajectory* traj, int8_t target_vehicle, struct state*
     double diff = double(abs(actual-expected));
     cost += logistic(diff/sigma);
   }
+  cost /= 3.0;
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -106,7 +108,7 @@ double collision_cost(struct trajectory* traj, int8_t target_vehicle, struct sta
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -122,7 +124,7 @@ double buffer_cost(struct trajectory* traj, int8_t target_vehicle, struct state*
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -137,7 +139,7 @@ double stays_on_road_cost(struct trajectory* traj, int8_t target_vehicle, struct
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -148,11 +150,23 @@ double stays_on_road_cost(struct trajectory* traj, int8_t target_vehicle, struct
 double exceeds_speed_limit_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
 {
   double cost = 0.0;
-  // TODO
+  double* s = traj->s_coeffs;
+  double t = traj->T;
+  double s_dot[5];
+  differentiate(s_dot, s, 5);
+  double speed = calculate(s_dot, t, 5);
+  if (speed > SPEED_LIMIT/2.24)
+  {
+    cost = 1.0 + logistic((speed-SPEED_LIMIT/2.24)/(SPEED_LIMIT/2.24));;
+  }
+  else
+  {
+    cost = logistic((SPEED_LIMIT/2.24-speed)/(SPEED_LIMIT/2.24));
+  }
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -173,7 +187,7 @@ double efficiency_cost(struct trajectory* traj, int8_t target_vehicle, struct st
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -204,7 +218,7 @@ double total_accel_cost(struct trajectory* traj, int8_t target_vehicle, struct s
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -233,12 +247,12 @@ double max_accel_cost(struct trajectory* traj, int8_t target_vehicle, struct sta
   }
   else
   {
-    cost = 0.0;
+    cost = logistic(MAX_ACCEL/(MAX_ACCEL-abs(max_acc)));
   }
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -269,12 +283,12 @@ double max_jerk_cost(struct trajectory* traj, int8_t target_vehicle, struct stat
   }
   else
   {
-    cost = 0.0;
+    cost = logistic(MAX_JERK/(MAX_JERK-abs(max_jerk)));
   }
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }
@@ -307,7 +321,22 @@ double total_jerk_cost(struct trajectory* traj, int8_t target_vehicle, struct st
 
   if (verbose == true)
   {
-    printf("%16s : %f\n", __func__, cost);
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
+  }
+  return cost;
+}
+
+/*
+ * Rewards safety for change lane.
+ */
+double safety_change_lane_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose)
+{
+  double cost = 0.0;
+  // TODO
+
+  if (verbose == true)
+  {
+    printf("[COST][INFO] %24s : %f\n", __func__, cost);
   }
   return cost;
 }

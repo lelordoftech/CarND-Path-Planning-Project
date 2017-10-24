@@ -11,8 +11,10 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 [image1]: ./output_images/compilation.png
 [image2]: ./output_images/show_trajectory.png
+
 [image3]: ./output_images/behavioral1.png
 [image4]: ./output_images/behavioral2.png
+
 [image5]: ./output_images/time_diff_cost.png
 [image6]: ./output_images/s_diff_cost.png
 [image7]: ./output_images/d_diff_cost.png
@@ -23,14 +25,21 @@ The goals / steps of this project are the following:
 [image12]: ./output_images/buffer_cost.png
 [image13]: ./output_images/max_accel_cost.png
 [image14]: ./output_images/total_accel_cost.png
-[image15]: ./output_images/valid_trajectory.png
-[image16]: ./output_images/invalid_trajectory.png
-[image17]: ./output_images/planPath.png
-[image18]: ./output_images/scenario1.png
-[image19]: ./output_images/scenario2.png
-[image20]: ./output_images/scenario3.png
-[image21]: ./output_images/scenario4.png
-[image22]: ./output_images/scenario5.png
+[image15]: ./output_images/exceeds_speed_limit_cost.png
+
+[image16]: ./output_images/valid_trajectory.png
+[image17]: ./output_images/invalid_trajectory.png
+[image18]: ./output_images/planPath.png
+
+[image19]: ./output_images/scenario1.png
+[image20]: ./output_images/scenario2.png
+[image21]: ./output_images/scenario3.png
+[image22]: ./output_images/scenario4.png
+[image23]: ./output_images/scenario5.png
+[image24]: ./output_images/scenario6.png
+[image25]: ./output_images/scenario7.png
+[image26]: ./output_images/scenario8.png
+
 [video1]: ./output_videos/Path_Planning_Final.mp4
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/1020/view) Points
@@ -75,6 +84,8 @@ Before implement path generation with Polynomial Trajectory Generation (PTG), I 
 
 ![alt text][image2]
 
+Please add definitions `-DVISUAL_DEBUG` in file `CMakeList.txt` if you want to use it.
+
 It's look like ok after porting code from python to C++ ([Trajectoryexercise2](https://classroom.udacity.com/nanodegrees/nd013/parts/6047fe34-d93c-4f50-8336-b70ef10cb4b2/modules/27800789-bc8e-4adc-afe0-ec781e82ceae/lessons/db4b83a1-b304-4355-92c7-66e973102079/concepts/16ed4c00-76c6-49f2-9d53-20ecd26644e0])).
 
 I generated paths by 6 steps as below. In each step, I try to create a function for maintenance easier.
@@ -101,12 +112,13 @@ To decide how to drive, I check the nearest vehicle in the front of us in the sa
 
 ##### 1.4 Find the best trajectory, best ref_lane
 
-File `main.cpp` line `190-205` and file `algorithm.cpp` line `216-318`
+File `main.cpp` line `190-205` and file `algorithm.cpp` line `216-376`
 
 This is planning's heart.
 
 I check the distance to the nearest vehicle in the front of us:
-* Between 3m and 44m: find the best trajectory to switch lane or following
+* Between +22m and +44m: find the best trajectory to switch lane or following. Just try to switch to the first next lane, not the second next lane. It's too far and have risk collision. Before switch lane, I check this next lane is safety or not. Safety is when the region -4m to +44m is free without any vehicle.
+* Between 0m and +22m: just slow down speed and following
 * Other case: just try to keep lane with max velocity
 
 ![alt text][image3]
@@ -164,9 +176,33 @@ File `cost_functions.cpp`
 
 ![alt text][image14]
 
+* exceeds_speed_limit_cost: Penalizes exceeds speed limit.
+
+![alt text][image15]
+
+**Cost functions table**:
+
+File `ptg.h` line `23-33`
+
+| No  | Cost function name        | Weight  |
+|-----|---------------------------|---------|
+| 0   | s_diff_cost               | 2       |
+| 1   | d_diff_cost               | 2       |
+| 2   | efficiency_cost           | 100     |
+| 3   | time_diff_cost            | 1       |
+| 4   | exceeds_speed_limit_cost  | 10      |
+| 5   | max_jerk_cost             | 1       |
+| 6   | total_jerk_cost           | 1       |
+| 7   | max_accel_cost            | 1       |
+| 8   | total_accel_cost          | 1       |
+| 9   | collision_cost            | 10      |
+| 10  | buffer_cost               | 1       |
+
+I try to test many time and get the latest table as above.
+
 ##### 1.5 Create path
 
-File `main.cpp` line `207-270` and file `algorithm.cpp` line `320-542`
+File `main.cpp` line `207-270` and file `algorithm.cpp` line `378-600`
 
 I try to create and keep a planning path with 50 points, alway use previous data.
 
@@ -174,7 +210,7 @@ It mean that my path will always be a continuous path.
 
 ###### 1.5.1 Create spline
 
-File `main.cpp` line `214-238`
+File `main.cpp` line `378-554`
 
 Firstly, I add 2 points:
 
@@ -185,9 +221,9 @@ In case I get a valid trajectory as above step, I take 2 points in this trajecto
 
 It should make the spline smoothy.
 
-File `algorithm.cpp` line `406-496`
+File `algorithm.cpp` line `464-554`
 
-![alt text][image15]
+![alt text][image16]
 
 In case I can not get a valid trajectory, I take 3 points in the future:
 
@@ -195,9 +231,9 @@ In case I can not get a valid trajectory, I take 3 points in the future:
 * 88 m
 * 132 m
 
-File `algorithm.cpp` line `320-404`
+File `algorithm.cpp` line `378-462`
 
-![alt text][image16]
+![alt text][image17]
 
 Always transform the coordinates before create spline:
 
@@ -248,11 +284,11 @@ Speed increase/decrease with step value is 0.224 mph/0.02s (acceleration = 5m/s2
 
 ###### 1.5.3 Create planning path base on above spline
 
-File `main.cpp` line `267-270` and file `algorithm.cpp` line `498-542`
+File `main.cpp` line `267-270` and file `algorithm.cpp` line `556-600`
 
 I create 50 points for moving. Some of them come from the previous data and I will create the rest part.
 
-![alt text][image17]
+![alt text][image18]
 
 To make the car run with a constant velocity, I split the distance line (green line) into N part.
 
@@ -291,23 +327,35 @@ Some scenarios:
 
 * Scenario 1: Do not have vehicle in the dangerous range
 
-![alt text][image18]
+![alt text][image19]
 
 * Scenario 2: Do not have vehicle in the dangerous range
 
-![alt text][image19]
+![alt text][image20]
 
 * Scenario 3: Have vehicle in the dangerous range
 
-![alt text][image20]
+![alt text][image21]
 
 * Scenario 4: Have vehicle in the dangerous range and very near us
 
-![alt text][image21]
+![alt text][image22]
 
 * Scenario 5: The vehicle behide us is driving faster than us
 
-![alt text][image22]
+![alt text][image23]
+
+* Scenario 6: Still have vehicle in the left of us but we can change to this lane because this vehicle will be in front of us
+
+![alt text][image24]
+
+* Scenario 7: Have vehicle in the left of us and we cannot change to this lane because this vehicle maybe hit us. So we change to right lane
+
+![alt text][image25]
+
+* Scenario 8: Have vehicle in both of left and right lane. We should change to lane which have minimize cost.
+
+![alt text][image26]
 
 ---
 

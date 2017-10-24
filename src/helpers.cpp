@@ -95,7 +95,7 @@ double nearest_approach(struct trajectory* traj, Vehicle* vehicle)
   double* s_ = traj->s_coeffs;
   double* d_ = traj->d_coeffs;
   double T = traj->T;
-  for (uint8_t i = 0; i < 10; i++)
+  for (uint8_t i = 0; i < 100; i++)
   {
     double t = double(i) / 100 * T;
     double cur_s = calculate(s_, t);

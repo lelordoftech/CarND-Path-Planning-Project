@@ -17,5 +17,6 @@ double total_accel_cost(struct trajectory* traj, int8_t target_vehicle, struct s
 double max_accel_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose=false);
 double max_jerk_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose=false);
 double total_jerk_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose=false);
+double safety_change_lane_cost(struct trajectory* traj, int8_t target_vehicle, struct state* delta, double T, std::map<int8_t, Vehicle>* predictions, bool verbose=false);
 
 #endif // COST_FUNC_H

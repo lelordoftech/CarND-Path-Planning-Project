@@ -20,16 +20,19 @@ private:
 public:
   Ptg()
   {
-    weighted_cost_functions[0][1] = &time_diff_cost;
-    weighted_cost_functions[1][1] = &s_diff_cost;
-    weighted_cost_functions[2][1] = &d_diff_cost;
-    weighted_cost_functions[3][1] = &efficiency_cost;
-    weighted_cost_functions[4][1] = &max_jerk_cost;
-    weighted_cost_functions[5][1] = &total_jerk_cost;
-    weighted_cost_functions[6][1] = &collision_cost;
-    weighted_cost_functions[7][1] = &buffer_cost;
-    weighted_cost_functions[8][1] = &max_accel_cost;
-    weighted_cost_functions[9][1] = &total_accel_cost;
+    weighted_cost_functions[0][2] = &s_diff_cost;
+    weighted_cost_functions[1][2] = &d_diff_cost;
+    weighted_cost_functions[2][100] = &efficiency_cost;
+    weighted_cost_functions[3][1] = &time_diff_cost;
+    weighted_cost_functions[4][10] = &exceeds_speed_limit_cost;
+    weighted_cost_functions[5][1] = &max_jerk_cost;
+    weighted_cost_functions[6][1] = &total_jerk_cost;
+    weighted_cost_functions[7][1] = &max_accel_cost;
+    weighted_cost_functions[8][1] = &total_accel_cost;
+    weighted_cost_functions[9][10] = &collision_cost;
+    weighted_cost_functions[10][1] = &buffer_cost;
+    //weighted_cost_functions[11][0] = &stays_on_road_cost;
+    //weighted_cost_functions[12][0] = &safety_change_lane_cost;
 
     graph = Graph::getInstance();
   };

@@ -185,7 +185,7 @@ int8_t find_nearest_vehicle(std::map<int8_t, Vehicle>* predictions,
                             int8_t ref_lane, double ref_s)
 {
   int8_t vehicle_id = -1;
-  double min_s = ref_s+DIST_PLANNING;
+  double min_s = DIST_PLANNING;
 
   for (std::map<int8_t, Vehicle>::iterator it=predictions->begin(); it!=predictions->end(); ++it)
   {
@@ -194,10 +194,10 @@ int8_t find_nearest_vehicle(std::map<int8_t, Vehicle>* predictions,
     // lane width is 4, so we need to check vehicle in range +-2 of center lane
     if (check_d > (double)(2+4*ref_lane - 2) && check_d < (double)(2+4*ref_lane + 2))
     {
-      if (check_s <= min_s)
+      if (abs(check_s-ref_s) <= min_s)
       {
         vehicle_id = it->first;
-        min_s = check_s;
+        min_s = abs(check_s-ref_s);
       }
       else
       {
@@ -248,39 +248,89 @@ bool find_best_traj(struct trajectory** best_traj, int8_t* ref_lane,
   {
     Vehicle vehicle = predictions->at(vehicle_id);
     double check_s = vehicle.state_in(0).s.m;
+    double check_s_dot = vehicle.state_in(0).s.m_dot;
     double check_d = vehicle.state_in(0).d.m;
     struct state delta;
 
     if (check_s <= ref_state->s.m+DIST_PLANNING &&
-        check_s >= ref_state->s.m+2*VEHICLE_RADIUS)
+        check_s >= ref_state->s.m+DIST_PLANNING/2.0)
     {
       // In dangerous region
       // Switch lane
       std::map<double, std::map<int8_t, struct trajectory*>> map_cost; // [cost : lane : traj]
 
       // Check all cases possible
+      //printf("[ALGORITHM][INFO] Total cost\n");
       for (int8_t i = 0; i < 3; i++)
       {
-        if (i != lane)
+        if (abs(i-lane) == 1)
         {
           // In other lanes
-          double delta_d = (2+i*4) - check_d;
-          delta.set(0, 0, 0, delta_d, 0, 0); // switch lane to center
+          int8_t nearest_id = find_nearest_vehicle(predictions,
+                                                  i, ref_state->s.m);
+          bool isSafety = false;
+          if (nearest_id > -1)
+          {
+            Vehicle near_vehicle = predictions->at(vehicle_id);
+            double check_near_s = near_vehicle.state_in(0).s.m;
+            if (check_near_s <= ref_state->s.m-2*VEHICLE_RADIUS ||
+                check_near_s >= ref_state->s.m+DIST_PLANNING)
+            {
+              isSafety = true;
+            }
+            else
+            {
+              isSafety = false;
+            }
+          }
+          else
+          {
+            isSafety = true;
+          }
+
+          if (isSafety == true)
+          {
+            // Safety to change lane
+            double delta_d = (2+i*4) - check_d;
+            // Buffer 0.5m to avoid collision
+            if (delta_d > 0)
+            {
+              delta_d += 0.5;
+            }
+            else if (delta_d < 0)
+            {
+              delta_d -= 0.5;
+            }
+            double delta_s_dot = SPEED_LIMIT/2.24 - check_s_dot;
+            delta.set(-4*VEHICLE_RADIUS, delta_s_dot, 0, delta_d, 0, 0); // switch lane to center
+          }
+          else
+          {
+            // If we can not switch lane, try to following and wait the chance to switch
+            continue;
+          }
         }
-        else
+        else if (i == lane)
         {
           // In our lane
           // If we can not switch lane, try to following and wait the chance to switch
           double delta_d = (2+lane*4) - check_d;
           delta.set(-DIST_PLANNING/2.0, 0, 0, delta_d, 0, 0); // planning following DIST_PLANNING/2.0 in the center
         }
+        else
+        {
+          // Should not chane 2 lane in 1 time
+          continue;
+        }
         struct trajectory* best = ptg->PTG(ref_state, vehicle_id, &delta, TIME_PLANNING, predictions);
         if (best != NULL)
         {
           double cost = ptg->calculate_cost(best, vehicle_id, &delta, TIME_PLANNING, predictions);
+          //printf(": %d:%f ", i, cost);
           map_cost[cost][i] = best; // Sort by cost to find minimum cost easier
         }
       }
+      //printf("\n");
 
       // Find best choice
       if (map_cost.size() > 0)
@@ -299,10 +349,18 @@ bool find_best_traj(struct trajectory** best_traj, int8_t* ref_lane,
         }
       }
     }
+    else if (check_s < ref_state->s.m+DIST_PLANNING/2.0 &&
+              check_s > ref_state->s.m)
+    {
+      is_following = true; // Slow down speed
+      double delta_d = (2+lane*4) - check_d;
+      delta.set(-DIST_PLANNING/2.0, 0, 0, delta_d, 0, 0); // planning following DIST_PLANNING/2.0 in the center
+      *best_traj = ptg->PTG(ref_state, vehicle_id, &delta, TIME_PLANNING, predictions);
+    }
     else
     {
-      // check_s > ref_state->s.m+DIST_PLANNING     -> In safe region
-      // check_s < ref_state->s.m+2*VEHICLE_RADIUS  -> Case vehicle in behide us
+      // check_s > ref_state->s.m+DIST_PLANNING -> In safe region
+      // check_s <= ref_state->s.m               -> Case vehicle in behide us
       // Go straight
       // We create a virtual vehicle with same state with us,
       // and try to keep follow this virtual vehicle

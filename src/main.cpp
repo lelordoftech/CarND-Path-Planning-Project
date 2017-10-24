@@ -291,7 +291,7 @@ int main() {
             gettimeofday(&t_end, NULL);
             uint16_t ms = (t_end.tv_sec-t_start.tv_sec) * 1000 +
                           (t_end.tv_usec-t_start.tv_usec) / 1000;
-            printf("[MAIN][INFO] Time to process: %d\n", ms);
+            //printf("[MAIN][INFO] Time to process: %d\n", ms);
           }
           if (s != NULL)
           {
